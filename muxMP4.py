@@ -9,8 +9,8 @@ from pkg_resources import require
 require('VideoConverter')
 require('lockfile')
 
-import converter
-import lockfile
+from converter import Converter
+from lockfile import FileLock
 
 
 
@@ -46,7 +46,7 @@ class MP4Maker:
 
     def _scan_input(self):
         print ' - Scanning file'
-        c = converter.Converter(config.get('paths', 'ffmpeg'), config.get('paths', 'ffprobe'))
+        c = Converter(config.get('paths', 'ffmpeg'), config.get('paths', 'ffprobe'))
         file = c.probe(self.path)
 
         video_count = 0

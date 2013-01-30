@@ -9,7 +9,7 @@ from pkg_resources import require
 
 require('tvdb_api')
 
-import tvdb_api
+from tvdb_api import Tvdb
 
 
 
@@ -26,7 +26,7 @@ def main():
     tvdb_id = int(sys.argv[3])
     season_num = sys.argv[4]
     episode_num = sys.argv[5]
-    tvdb_instance = tvdb_api.Tvdb(cache=True)
+    tvdb_instance = Tvdb(cache=True)
     tvdb_show = tvdb_instance[tvdb_id]
  
     print 'Adding file to iTunes - ' + path

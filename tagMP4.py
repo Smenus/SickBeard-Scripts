@@ -14,8 +14,8 @@ require('VideoConverter')
 require('tvdb_api')
 
 import itunes
-import converter
-import tvdb_api
+from converter import Converter
+from tvdb_api import Tvdb
 
 
 
@@ -25,7 +25,7 @@ class Episode_Tags:
 
         print ' - Fetching information'
 
-        tvdb_instance = tvdb_api.Tvdb(cache=True, banners=True, actors=True)
+        tvdb_instance = Tvdb(cache=True, banners=True, actors=True)
         tvdb_show = tvdb_instance[tvdb_id]
         tvdb_episode = tvdb_show[season_num][episode_num]
 
@@ -240,7 +240,7 @@ def main():
         sys.exit(1)
 
     print ' - Scanning video to check format and HDness'
-    c = converter.Converter(config.get('paths', 'ffmpeg'), config.get('paths', 'ffprobe'))
+    c = Converter(config.get('paths', 'ffmpeg'), config.get('paths', 'ffprobe'))
     file = c.probe(path)
 
     if file.format.format.find('mp4') == -1:
