@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/local/bin/python
 
 import os
 import sys
@@ -38,7 +38,7 @@ class MP4Maker:
 
 
     def _scan_input(self):
-        c = converter.Converter()
+        c = converter.Converter('/usr/local/bin/ffmpeg', '/usr/local/bin/ffprobe')
         file = c.probe(self.path)
 
         video_count = 0
@@ -68,7 +68,7 @@ class MP4Maker:
             print 'More than 1 video or audio stream, you\'d best check this file manually'
             sys.exit(1)
 
-        self.ffmpeg_command = ['ffmpeg', '-v', 'error', '-nostats', '-i', self.path]
+        self.ffmpeg_command = ['/usr/local/bin/ffmpeg', '-v', 'error', '-nostats', '-i', self.path]
 
 
     def _set_ffmpeg_video(self):
@@ -150,7 +150,7 @@ class MP4Maker:
 
 
     def _set_mp4box(self):
-        self.mp4box_command = ['MP4Box', '-noprog', '-tmp', os.path.dirname(self.path)]
+        self.mp4box_command = ['/usr/local/bin/MP4Box', '-noprog', '-tmp', os.path.dirname(self.path)]
         if self.multiple_audio:
             self.mp4box_command.append('-disable')
             self.mp4box_command.append('3')

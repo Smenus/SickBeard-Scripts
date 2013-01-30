@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/local/bin/python
 
 import os
 import sys
@@ -24,7 +24,7 @@ def main():
         print 'Path doesn\'t exist'
         sys.exit(1)
 
-    osascript_command = ['osascript', '-e']
+    osascript_command = ['/usr/bin/osascript', '-e']
     
     script = textwrap.dedent("""\
         set p to "%s"

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/local/bin/python
 
 import os
 import sys
@@ -171,7 +171,7 @@ class MP4_Tagger:
         self.file = file
         self.tags = tags
 
-        c = converter.Converter()
+        c = converter.Converter('/usr/local/bin/ffmpeg', '/usr/local/bin/ffprobe')
         video = c.probe(file).video
         self.tags.set_hd('1' if (video.video_height >= 700 or video.video_width >= 1260) else '0')
         path = os.path.dirname(file)
@@ -186,7 +186,7 @@ class MP4_Tagger:
     def write(self):
         environment = os.environ.copy()
         environment['PIC_OPTIONS'] = 'removeTempPix'
-        command = ['AtomicParsley', self.file, '--overWrite']
+        command = ['/usr/local/bin/AtomicParsley', self.file, '--overWrite']
         command.extend(self.tags.get_tags())
         subprocess.call(command, env = environment)
 
