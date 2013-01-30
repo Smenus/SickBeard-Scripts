@@ -26,6 +26,11 @@ class Episode_Tags:
             itunes_season = itunes_episode.get_album()
         else:
             itunes_episode = None
+            itunes_season = itunes.search_season(tvdb_show['seriesname'] + ', Season ' + str(season_num))
+            if len(itunes_season) == 0:
+                itunes_season = None
+            else:
+                itunes_season = itunes_season[0]
 
         self.tags.append({'TVSeasonNum': str(season_num)})
         self.tags.append({'TVEpisodeNum': str(episode_num)})
@@ -59,8 +64,11 @@ class Episode_Tags:
             self.tags.append({'tracknum': str(episode_num) + '/' + str(len(tvdb_show[season_num]))})
             self.tags.append({'year': tvdb_episode['firstaired']})
             self.tags.append({'cnID': tvdb_episode['id']})
-            self.get_tvdb_artwork(tvdb_show, season_num)
-            self.tags.append({'description': tvdb_episode['overview'][:252] + (data[252:] and '...')})
+            if itunes_season is None:
+                self.get_tvdb_artwork(tvdb_show, season_num)
+            else:
+                self.get_itunes_artwork(itunes_season)
+            self.tags.append({'description': tvdb_episode['overview'][:252] + (tvdb_episode['overview'][252:] and '...')})
             self.tags.append({'longdesc': tvdb_episode['overview']})
 
         self.xml = self.gen_XML(tvdb_show, tvdb_episode)
