@@ -213,7 +213,7 @@ class MP4_Tagger:
         command.extend(self.tags.get_tags())
         if config.get('general', 'debug') == 'True':
             print self.command
-        subprocess.call(command, env = environment)
+        subprocess.check_output(command, env = environment)
 
 
 

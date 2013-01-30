@@ -160,7 +160,7 @@ class MP4Maker:
             self.ffmpeg_command.append(os.path.splitext(self.path)[0] + config.get('general', 'extension'))
             if config.get('general', 'debug') == 'True':
                 print self.ffmpeg_command
-            subprocess.call(self.ffmpeg_command)
+            subprocess.check_call(self.ffmpeg_command)
 
 
     def _set_mp4box(self):
@@ -175,7 +175,7 @@ class MP4Maker:
         print ' - Optimizing MP4'
         if config.get('general', 'debug') == 'True':
             print self.mp4box_command
-        subprocess.call(self.mp4box_command)
+        subprocess.check_call(self.mp4box_command)
 
 
 
