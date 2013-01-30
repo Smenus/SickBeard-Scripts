@@ -4,6 +4,10 @@ import os
 import sys
 import subprocess
 import ConfigParser
+
+sys.path.append('./lib/VideoConverter-1.0.1-py2.7.egg')
+sys.path.append('./lib/lockfile-0.9.1-py2.7.egg')
+
 import converter
 import lockfile
 

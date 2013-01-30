@@ -5,6 +5,9 @@ import sys
 import subprocess
 import textwrap
 import ConfigParser
+
+sys.path.append('./lib/tvdb_api-1.8.2-py2.7.egg')
+
 import tvdb_api
 
 

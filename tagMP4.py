@@ -7,6 +7,11 @@ import pipes
 import urllib
 import StringIO
 import ConfigParser
+
+sys.path.append('./lib/VideoConverter-1.0.1-py2.7.egg')
+sys.path.append('./lib/python_itunes-1.0-py2.7.egg')
+sys.path.append('./lib/tvdb_api-1.8.2-py2.7.egg')
+
 import itunes
 import converter
 import tvdb_api
