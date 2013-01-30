@@ -231,6 +231,7 @@ def main():
     season_num = int(sys.argv[4])
     episode_num = int(sys.argv[5])
 
+    print ''
     print 'Tagging MP4 - ' + path
 
     if not os.path.exists(path):

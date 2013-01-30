@@ -29,6 +29,7 @@ def main():
     tvdb_instance = Tvdb(cache=True)
     tvdb_show = tvdb_instance[tvdb_id]
  
+    print ''
     print 'Adding file to iTunes - ' + path
    
     if not os.path.exists(path):

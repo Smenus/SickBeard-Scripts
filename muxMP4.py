@@ -192,6 +192,7 @@ def main():
 
     path = sys.argv[1]
 
+    print ''
     print 'Converting file to MP4 - ' + path
 
     maker = MP4Maker(path)
