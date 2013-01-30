@@ -192,8 +192,6 @@ class MP4_Tagger:
         self.file = file
         self.tags = tags
 
-        video = c.probe(file).video
-        self.tags.set_hd('1' if (video.video_height >= 700 or video.video_width >= 1260) else '0')
         artwork = os.path.join(os.path.dirname(file), config.get('tagMP4', 'artwork_filename'))
         if os.path.exists(artwork + '.png'):
             self.tags.set_artwork(artwork + '.png')
