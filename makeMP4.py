@@ -1,8 +1,9 @@
-#!/usr/local/bin/python
+#!/usr/bin/env python
 
 import os
 import sys
 import subprocess
+import ConfigParser
 import converter
 
 
@@ -12,11 +13,11 @@ class MP4Maker:
         self.path = path
 
         if not os.path.exists(path):
-            print 'Path doesn\'t exist'
+            print ' @ Error: Path doesn\'t exist'
             sys.exit(1)
 
-        if os.path.splitext(path)[1] == '.m4v':
-            print 'File is already an m4v'
+        if os.path.splitext(path)[1] == config.get('general', 'extension'):
+            print ' @ Error: File is already an m4v'
             sys.exit(1)
 
 
@@ -38,7 +39,8 @@ class MP4Maker:
 
 
     def _scan_input(self):
-        c = converter.Converter('/usr/local/bin/ffmpeg', '/usr/local/bin/ffprobe')
+        print ' - Scanning file'
+        c = converter.Converter(config.get('paths', 'ffmpeg'), config.get('paths', 'ffprobe'))
         file = c.probe(self.path)
 
         video_count = 0
@@ -68,10 +70,11 @@ class MP4Maker:
             print 'More than 1 video or audio stream, you\'d best check this file manually'
             sys.exit(1)
 
-        self.ffmpeg_command = ['/usr/local/bin/ffmpeg', '-v', 'error', '-nostats', '-i', self.path]
+        self.ffmpeg_command = [config.get('paths', 'ffmpeg'), '-v', 'error', '-nostats', '-i', self.path]
 
 
     def _set_ffmpeg_video(self):
+        print ' - Setting video options'
         if self.video_kind == 'h264':
             self.ffmpeg_command.append('-map')
             self.ffmpeg_command.append('0:v')
@@ -84,24 +87,25 @@ class MP4Maker:
             self.ffmpeg_command.append('libx264')
             self.ffmpeg_command.append('-crf:v')
             if self.video_hd:
-                self.ffmpeg_command.append('23')
+                self.ffmpeg_command.append(config.get('makeMP4', 'x264_crf_hd'))
             else:
-                self.ffmpeg_command.append('21')
+                self.ffmpeg_command.append(config.get('makeMP4', 'x264_crf_sd'))
             self.ffmpeg_command.append('-preset:v')
-            self.ffmpeg_command.append('medium')
+            self.ffmpeg_command.append(config.get('makeMP4', 'x264_preset'))
             self.ffmpeg_command.append('-x264opts')
-            self.ffmpeg_command.append('b-adapt=2')
+            self.ffmpeg_command.append(config.get('makeMP4', 'x264_opts'))
 
 
     def _set_ffmpeg_audio(self):
+        print ' - Setting audio options'
         self.multiple_audio = False
         if self.audio_kind == 'mp3':
             self.ffmpeg_command.append('-map')
             self.ffmpeg_command.append('0:a')
             self.ffmpeg_command.append('-c:a:0')
-            self.ffmpeg_command.append('libfdk_aac')
-            self.ffmpeg_command.append('-vbr:a:0')
-            self.ffmpeg_command.append('5')
+            self.ffmpeg_command.append(config.get('makeMP4', 'aac_lib'))
+            self.ffmpeg_command.append(config.get('makeMP4', 'aac_q_cmd') + ':a:0')
+            self.ffmpeg_command.append(config.get('makeMP4', 'aac_q'))
             self.ffmpeg_command.append('-ac:a:0')
             self.ffmpeg_command.append('2')
         elif self.audio_kind == 'aac':
@@ -114,9 +118,9 @@ class MP4Maker:
             self.ffmpeg_command.append('-map')
             self.ffmpeg_command.append('0:a')
             self.ffmpeg_command.append('-c:a:0')
-            self.ffmpeg_command.append('libfdk_aac')
-            self.ffmpeg_command.append('-vbr:a:0')
-            self.ffmpeg_command.append('5')
+            self.ffmpeg_command.append(config.get('makeMP4', 'aac_lib'))
+            self.ffmpeg_command.append(config.get('makeMP4', 'aac_q_cmd') + ':a:0')
+            self.ffmpeg_command.append(config.get('makeMP4', 'aac_q'))
             self.ffmpeg_command.append('-ac:a:0')
             self.ffmpeg_command.append('2')
             self.ffmpeg_command.append('-map')
@@ -126,6 +130,7 @@ class MP4Maker:
 
 
     def _set_ffmpeg_other(self):
+        print ' - Setting other options'
         if self.copy_subtitles:
             self.ffmpeg_command.append('-map')
             self.ffmpeg_command.append('0:s')
@@ -144,21 +149,25 @@ class MP4Maker:
 
 
     def _run_ffmpeg(self):
-        print 'Converting to MP4...'
-        self.ffmpeg_command.append(os.path.splitext(self.path)[0] + '.m4v')
+        print ' - Converting to MP4'
+        self.ffmpeg_command.append(os.path.splitext(self.path)[0] + config.get('general', 'extension'))
+        if config.get('general', 'debug') == 'True':
+            print self.ffmpeg_command
         subprocess.call(self.ffmpeg_command)
 
 
     def _set_mp4box(self):
-        self.mp4box_command = ['/usr/local/bin/MP4Box', '-noprog', '-tmp', os.path.dirname(self.path)]
+        self.mp4box_command = [config.get('paths', 'mp4box'), '-noprog', '-tmp', os.path.dirname(self.path)]
         if self.multiple_audio:
             self.mp4box_command.append('-disable')
             self.mp4box_command.append('3')
-        self.mp4box_command.append(os.path.splitext(self.path)[0] + '.m4v')
+        self.mp4box_command.append(os.path.splitext(self.path)[0] + config.get('general', 'extension'))
 
 
     def _run_mp4box(self):
-        print 'Optimizing MP4...'
+        print ' - Optimizing MP4'
+        if config.get('general', 'debug') == 'True':
+            print self.mp4box_command
         subprocess.call(self.mp4box_command)
 
 
@@ -168,12 +177,23 @@ def main():
         print 'Not enough arguments, this script should be called by Sick Beard'
         sys.exit(1)
 
+    global config
+    config = ConfigParser.ConfigParser()
+    config_file = os.path.join(os.path.dirname(sys.argv[0]), "config.cfg")
+    config.read(config_file)
+
     path = sys.argv[1]
+
+    print 'Converting file to MP4 - ' + path
 
     maker = MP4Maker(path)
     maker.make_mp4()
     maker.optimize_mp4()
-    maker.remove_old()
+    if config.get('makeMP4', 'delete_old') == 'True':
+        print ' - Removing old file'
+        maker.remove_old()
+
+    print ' * Done converting file to MP4'
 
 
 if __name__ == '__main__':

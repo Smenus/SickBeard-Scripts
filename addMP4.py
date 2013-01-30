@@ -1,9 +1,10 @@
-#!/usr/local/bin/python
+#!/usr/bin/env python
 
 import os
 import sys
 import subprocess
 import textwrap
+import ConfigParser
 import tvdb_api
 
 
@@ -13,18 +14,24 @@ def main():
         print 'Not enough arguments, this script should be called by Sick Beard'
         sys.exit(1)
 
-    path = os.path.splitext(sys.argv[1])[0] + '.m4v'
+    config = ConfigParser.ConfigParser()
+    config_file = os.path.join(os.path.dirname(sys.argv[0]), "config.cfg")
+    config.read(config_file)
+
+    path = os.path.splitext(sys.argv[1])[0] + config.get('general', 'extension')
     tvdb_id = int(sys.argv[3])
     season_num = sys.argv[4]
     episode_num = sys.argv[5]
     tvdb_instance = tvdb_api.Tvdb(cache=True)
     tvdb_show = tvdb_instance[tvdb_id]
-    
+ 
+    print 'Adding file to iTunes - ' + path
+   
     if not os.path.exists(path):
-        print 'Path doesn\'t exist'
+        print ' @ Error: Path doesn\'t exist'
         sys.exit(1)
 
-    osascript_command = ['/usr/bin/osascript', '-e']
+    osascript_command = [config.get('paths', 'osascript'), '-e']
     
     script = textwrap.dedent("""\
         set p to "%s"
@@ -35,20 +42,19 @@ def main():
         set episodenumber to "%s"
         set seasonname to "%s"
 
-        set outText to outText & "Checking to see if " & seasonname & " S" & seasonnumber & "E" & episodenumber & " exists in iTunes\n"
+        set outText to outText & " - Checking to see if episode already exists in iTunes\n"
 
         tell application "iTunes"
             set theTracks to tracks of library playlist 1 whose show contains (seasonname as string) and season number is (seasonnumber as integer) and episode number is (episodenumber as integer) and video kind is TV show
 
             repeat with theTrack in theTracks
-                set outText to outText & "Found in iTunes, deleting\n"
+                set outText to outText & " - Found in iTunes, deleting previous entry\n"
                 delete theTrack
             end repeat
 
+            set outText to outText & " - Sending file to iTunes\n"
             tell application "iTunes" to add f
         end tell
-
-        set outText to outText & "Done"
 
         return outText""")
 
@@ -56,6 +62,8 @@ def main():
     osascript_command.append(script)
 
     subprocess.call(osascript_command)
+
+    print ' * Done adding file to iTunes'
 
 
 if __name__ == '__main__':

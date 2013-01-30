@@ -1,4 +1,4 @@
-#!/usr/local/bin/python
+#!/usr/bin/env python
 
 import os
 import sys
@@ -6,6 +6,7 @@ import subprocess
 import pipes
 import urllib
 import StringIO
+import ConfigParser
 import itunes
 import converter
 import tvdb_api
@@ -13,8 +14,10 @@ import tvdb_api
 
 
 class Episode_Tags:
-    def __init__(self, tvdb_id, season_num, episode_num):
+    def __init__(self, tvdb_id, season_num, episode_num, hd):
         self.tags = []
+
+        print ' - Fetching information'
 
         tvdb_instance = tvdb_api.Tvdb(cache=True, banners=True, actors=True)
         tvdb_show = tvdb_instance[tvdb_id]
@@ -24,13 +27,17 @@ class Episode_Tags:
         if len(itunes_episodes) > 0:
             itunes_episode = itunes_episodes[0]
             itunes_season = itunes_episode.get_album()
+            print ' - iTunes episode information found'
         else:
             itunes_episode = None
             itunes_season = itunes.search_season(tvdb_show['seriesname'] + ', Season ' + str(season_num))
+            print ' - No iTunes episode information found'
             if len(itunes_season) == 0:
                 itunes_season = None
+                print ' - No iTunes season information found'
             else:
                 itunes_season = itunes_season[0]
+                print ' - iTunes season information found'
 
         self.tags.append({'TVSeasonNum': str(season_num)})
         self.tags.append({'TVEpisodeNum': str(episode_num)})
@@ -39,6 +46,7 @@ class Episode_Tags:
         self.tags.append({'TVEpisode': tvdb_episode['productioncode']})
         self.tags.append({'stik': 'TV Show'})
         self.tags.append({'artwork': 'REMOVE_ALL'})
+        self.tags.append({'hdvideo': hd})
 
         if itunes_episode is not None:
             self.tags.append({'TVShowName': itunes_episode.get_artist().get_name()})
@@ -71,7 +79,9 @@ class Episode_Tags:
             self.tags.append({'description': tvdb_episode['overview'][:252] + (tvdb_episode['overview'][252:] and '...')})
             self.tags.append({'longdesc': tvdb_episode['overview']})
 
-        self.xml = self.gen_XML(tvdb_show, tvdb_episode)
+        if config.get('tagMP4', 'add_people') == 'True':
+            print ' - Adding cast and crew information'
+            self.xml = self.gen_XML(tvdb_show, tvdb_episode)
 
 
     def gen_XML(self, tvdb_show, tvdb_episode):
@@ -150,27 +160,24 @@ class Episode_Tags:
             return 0
 
 
-    def set_hd(self, hd):
-        self.tags.append({'hdvideo': hd})
-
-
     def set_artwork(self, artwork_path):
         self.artwork_path = artwork_path
 
 
     def get_tags(self):
-        line = []
+        command = []
         for tag in self.tags:
             if tag.values()[0] is not None:
-                line.append('--' + tag.keys()[0])
-                line.append(tag.values()[0])
-        line.append('--artwork')
-        line.append(self.artwork_path)
-        line.append('--rDNSatom')
-        line.append(self.xml)
-        line.append('name=iTunMOVI')
-        line.append('domain=com.apple.iTunes')
-        return line
+                command.append('--' + tag.keys()[0])
+                command.append(tag.values()[0])
+        command.append('--artwork')
+        command.append(self.artwork_path)
+        if config.get('tagMP4', 'add_people') == 'True':
+            command.append('--rDNSatom')
+            command.append(self.xml)
+            command.append('name=iTunMOVI')
+            command.append('domain=com.apple.iTunes')
+        return command
 
 
 
@@ -179,23 +186,28 @@ class MP4_Tagger:
         self.file = file
         self.tags = tags
 
-        c = converter.Converter('/usr/local/bin/ffmpeg', '/usr/local/bin/ffprobe')
         video = c.probe(file).video
         self.tags.set_hd('1' if (video.video_height >= 700 or video.video_width >= 1260) else '0')
-        path = os.path.dirname(file)
-        if os.path.exists(path + os.sep + 'artwork.png'):
-            self.tags.set_artwork(path + os.sep + 'artwork.png')
-        elif os.path.exists(path + os.sep + 'artwork.jpg'):
-            self.tags.set_artwork(path + os.sep + 'artwork.jpg')
-        elif os.path.exists(path + os.sep + 'artwork.jpeg'):
-            self.tags.set_artwork(path + os.sep + 'artwork.jpeg')
+        artwork = os.path.join(os.path.dirname(file), config.get('tagMP4', 'artwork_filename'))
+        if os.path.exists(artwork + '.png'):
+            self.tags.set_artwork(artwork + '.png')
+            print ' - Local artwork found - ' + artwork + '.png'
+        elif os.path.exists(artwork + '.jpg'):
+            self.tags.set_artwork(artwork + '.jpg')
+            print ' - Local artwork found - ' + artwork + '.jpg'
+        elif os.path.exists(artwork + '.jpeg'):
+            self.tags.set_artwork(artwork + '.jpeg')
+            print ' - Local artwork found - ' + artwork + '.jpeg'
 
 
     def write(self):
+        print ' - Writing tags to file'
         environment = os.environ.copy()
         environment['PIC_OPTIONS'] = 'removeTempPix'
-        command = ['/usr/local/bin/AtomicParsley', self.file, '--overWrite']
+        command = [config.get('paths', 'atomicparsley'), self.file, '--overWrite']
         command.extend(self.tags.get_tags())
+        if config.get('general', 'debug') == 'True':
+            print self.command
         subprocess.call(command, env = environment)
 
 
@@ -205,26 +217,38 @@ def main():
         print 'Not enough arguments, this script should be called by Sick Beard'
         sys.exit(1)
 
-    path = os.path.splitext(sys.argv[1])[0] + '.m4v'
+    global config
+    config = ConfigParser.ConfigParser()
+    config_file = os.path.join(os.path.dirname(sys.argv[0]), "config.cfg")
+    config.read(config_file)
+
+    path = os.path.splitext(sys.argv[1])[0] + config.get('general', 'extension')
     tvdb_id = int(sys.argv[3])
     season_num = int(sys.argv[4])
     episode_num = int(sys.argv[5])
 
+    print 'Tagging MP4 - ' + path
+
     if not os.path.exists(path):
-        print 'Path doesn\'t exist'
+        print ' @ Error: Path doesn\'t exist'
         sys.exit(1)
 
-    c = converter.Converter('/usr/local/bin/ffmpeg', '/usr/local/bin/ffprobe')
+    print ' - Scanning video to check format and HDness'
+    c = converter.Converter(config.get('paths', 'ffmpeg'), config.get('paths', 'ffprobe'))
     file = c.probe(path)
 
     if file.format.format.find('mp4') == -1:
-        print 'File isn\'t MP4 compatible, we can\'t tag it!'
+        print ' @ Error: File isn\'t MP4 compatible, we can\'t tag it!'
         sys.exit(1)
 
-    tags = Episode_Tags(tvdb_id, season_num, episode_num)
+    hd = '1' if (file.video.video_height >= 700 or file.video.video_width >= 1260) else '0'
+
+    tags = Episode_Tags(tvdb_id, season_num, episode_num, hd)
     tagger = MP4_Tagger(path, tags)
 
     tagger.write()
+
+    print ' * Done tagging MP4'
 
 
 
