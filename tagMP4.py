@@ -219,7 +219,7 @@ def main():
 
     global config
     config = ConfigParser.ConfigParser()
-    config_file = os.path.join(os.path.dirname(sys.argv[0]), "config.cfg")
+    config_file = os.path.join(os.path.dirname(sys.argv[0]), 'config.cfg')
     config.read(config_file)
 
     path = os.path.splitext(sys.argv[1])[0] + config.get('general', 'extension')

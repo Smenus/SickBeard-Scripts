@@ -5,6 +5,7 @@ import sys
 import subprocess
 import ConfigParser
 import converter
+import lockfile
 
 
 
@@ -149,11 +150,13 @@ class MP4Maker:
 
 
     def _run_ffmpeg(self):
-        print ' - Converting to MP4'
-        self.ffmpeg_command.append(os.path.splitext(self.path)[0] + config.get('general', 'extension'))
-        if config.get('general', 'debug') == 'True':
-            print self.ffmpeg_command
-        subprocess.call(self.ffmpeg_command)
+        print ' - Getting lock file'
+        with FileLock(os.path.join(os.path.dirname(sys.argv[0]), 'ffmpeg-running')):
+            print ' - Converting to MP4'
+            self.ffmpeg_command.append(os.path.splitext(self.path)[0] + config.get('general', 'extension'))
+            if config.get('general', 'debug') == 'True':
+                print self.ffmpeg_command
+            subprocess.call(self.ffmpeg_command)
 
 
     def _set_mp4box(self):
@@ -179,7 +182,7 @@ def main():
 
     global config
     config = ConfigParser.ConfigParser()
-    config_file = os.path.join(os.path.dirname(sys.argv[0]), "config.cfg")
+    config_file = os.path.join(os.path.dirname(sys.argv[0]), 'config.cfg')
     config.read(config_file)
 
     path = sys.argv[1]
