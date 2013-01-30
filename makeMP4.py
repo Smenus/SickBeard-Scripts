@@ -150,7 +150,7 @@ class MP4Maker:
 
 
     def _set_mp4box(self):
-        self.mp4box_command = ['MP4Box', '-noprog']
+        self.mp4box_command = ['MP4Box', '-noprog', '-tmp', os.path.dirname(self.path)]
         if self.multiple_audio:
             self.mp4box_command.append('-disable')
             self.mp4box_command.append('3')
