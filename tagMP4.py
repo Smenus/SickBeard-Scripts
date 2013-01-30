@@ -206,7 +206,7 @@ def main():
         print 'Path doesn\'t exist'
         sys.exit(1)
 
-    c = converter.Converter()
+    c = converter.Converter('/usr/local/bin/ffmpeg', '/usr/local/bin/ffprobe')
     file = c.probe(path)
 
     if file.format.format.find('mp4') == -1:
