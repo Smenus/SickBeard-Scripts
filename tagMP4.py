@@ -211,7 +211,7 @@ class MP4_Tagger:
         command = [config.get('paths', 'atomicparsley'), self.file, '--overWrite']
         command.extend(self.tags.get_tags())
         if config.get('general', 'debug') == 'True':
-            print self.command
+            print command
         subprocess.check_output(command, env = environment)
 
 
