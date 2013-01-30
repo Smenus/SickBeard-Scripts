@@ -135,7 +135,7 @@ class Episode_Tags:
         self.artwork_path = urllib.urlretrieve(url)[0]
 
 
-    def sort_banners_by_rating(k):
+    def sort_banners_by_rating(self, k):
         if 'rating' in k:
             return float(k['rating'])
         else:
