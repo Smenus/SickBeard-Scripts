@@ -56,7 +56,7 @@ class Episode_Tags:
             self.tags.append({'title': tvdb_episode['episodename']})
             self.tags.append({'album': tvdb_show['seriesname'] + ', Season ' + str(season_num)})
             self.tags.append({'genre': tvdb_show['genre']})
-            self.tags.append({'tracknum': str(episode_num) + '/' + str(len(tvdb_show[season_num])})
+            self.tags.append({'tracknum': str(episode_num) + '/' + str(len(tvdb_show[season_num]))})
             self.tags.append({'year': tvdb_episode['firstaired']})
             self.tags.append({'cnID': tvdb_episode['id']})
             self.get_tvdb_artwork(tvdb_show, season_num)
