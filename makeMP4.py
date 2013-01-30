@@ -68,7 +68,7 @@ class MP4Maker:
             print 'More than 1 video or audio stream, you\'d best check this file manually'
             sys.exit(1)
 
-        self.ffmpeg_command = ['/usr/local/bin/ffmpeg', '-v', 'error', '-nostats', '-thread', '2', '-i', self.path]
+        self.ffmpeg_command = ['/usr/local/bin/ffmpeg', '-v', 'error', '-nostats', '-i', self.path]
 
 
     def _set_ffmpeg_video(self):
