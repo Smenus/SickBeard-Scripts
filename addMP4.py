@@ -66,7 +66,9 @@ def main():
     script = script % (path, season_num, episode_num, tvdb_show['seriesname'])
     osascript_command.append(script)
 
-    subprocess.check_call(osascript_command)
+    script_output = subprocess.check_output(osascript_command)
+
+    print script_output
 
     print ' * Done adding file to iTunes'
 
