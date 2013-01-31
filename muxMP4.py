@@ -31,7 +31,7 @@ class MP4Maker:
         self._scan_input()
         self._set_ffmpeg_video()
         self._set_ffmpeg_audio()
-        self._set_ffmpeg_other()
+        self._extract_subtitles()
         self._run_ffmpeg()
 
 
@@ -51,12 +51,11 @@ class MP4Maker:
 
         video_count = 0
         audio_count = 0
+        subtitle_count = 0
         self.audio_kind = ''
         self.video_kind = ''
         self.video_hd = False
         self.copy_subtitles = False
-        self.copy_data = False
-        self.copy_attachments = False
         for stream in file.streams:
             if stream.type == 'audio':
                 audio_count += 1
@@ -66,15 +65,17 @@ class MP4Maker:
                 self.video_kind = stream.codec
                 self.video_hd = True if (stream.video_height >= 700 or stream.video_width >= 1260) else False
             elif stream.type == 'subtitle':
-                self.copy_subtitles = True
-            elif stream.type == 'data':
-                self.copy_data = True
-            elif stream.type == 'attachment':
-                self.copy_attachments = True
+                subtitle_count += 1
+                if stream.codec == 'subrip':
+                    self.copy_subtitles = True
 
         if audio_count != 1 or video_count != 1:
             print 'More than 1 video or audio stream, you\'d best check this file manually'
             sys.exit(1)
+
+        if subtitle_count > 1:
+            print 'More than 1 subtitle stream, and I have no idea how to handle that with ffmpeg'
+            self.copy_subtitles = False
 
         self.ffmpeg_command = [config.get('paths', 'ffmpeg'), '-v', 'error', '-nostats', '-i', self.path]
 
@@ -135,23 +136,21 @@ class MP4Maker:
             self.ffmpeg_command.append('copy')
 
 
-    def _set_ffmpeg_other(self):
-        print ' - Setting other options'
+    def _extract_subtitles(self):
         if self.copy_subtitles:
-            self.ffmpeg_command.append('-map')
-            self.ffmpeg_command.append('0:s')
-            self.ffmpeg_command.append('-c:s')
-            self.ffmpeg_command.append('copy')
-        if self.copy_data:
-            self.ffmpeg_command.append('-map')
-            self.ffmpeg_command.append('0:d')
-            self.ffmpeg_command.append('-c:d')
-            self.ffmpeg_command.append('copy')
-        if self.copy_attachments:
-            self.ffmpeg_command.append('-map')
-            self.ffmpeg_command.append('0:t')
-            self.ffmpeg_command.append('-c:t')
-            self.ffmpeg_command.append('copy')
+            print ' - Extracting subtitles'
+            ffmpeg_subtitle_command = [config.get('paths', 'ffmpeg'), '-v', 'error', '-nostats', '-i', self.path]
+            ffmpeg_subtitle_command.append('-an')
+            ffmpeg_subtitle_command.append('-vn')
+            ffmpeg_subtitle_command.append('-scodec')
+            ffmpeg_subtitle_command.append('copy')
+            ffmpeg_subtitle_command.append('-copyinkf')
+            ffmpeg_subtitle_command.append('-f')
+            ffmpeg_subtitle_command.append('srt')
+            ffmpeg_subtitle_command.append(os.path.splitext(self.path)[0] + '.srt')
+            if config.get('general', 'debug') == 'True':
+                print ffmpeg_subtitle_command
+            subprocess.check_call(ffmpeg_subtitle_command)
 
 
     def _run_ffmpeg(self):
@@ -169,6 +168,9 @@ class MP4Maker:
         if self.multiple_audio:
             self.mp4box_command.append('-disable')
             self.mp4box_command.append('3')
+        if self.copy_subtitles:
+            self.mp4box_command.append('-add')
+            self.mp4box_command.append(os.path.splitext(self.path)[0] + '.srt')
         self.mp4box_command.append(os.path.splitext(self.path)[0] + config.get('general', 'extension'))
 
 
@@ -177,6 +179,9 @@ class MP4Maker:
         if config.get('general', 'debug') == 'True':
             print self.mp4box_command
         subprocess.check_call(self.mp4box_command)
+        if self.copy_subtitles:
+            print ' - Removing extracted subtitles'
+            os.remove(os.path.splitext(self.path)[0] + '.srt')
 
 
 
