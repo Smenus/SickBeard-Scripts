@@ -6,7 +6,6 @@ import subprocess
 import pipes
 import urllib
 import StringIO
-import ConfigParser
 from pkg_resources import require
 
 require('python-itunes')
@@ -20,7 +19,7 @@ from tvdb_api import Tvdb
 
 
 class Episode_Tags:
-    def __init__(self, tvdb_id, season_num, episode_num, hd):
+    def __init__(self, tvdb_id, season_num, episode_num):
         self.tags = []
 
         print ' - Fetching information'
@@ -52,7 +51,6 @@ class Episode_Tags:
         self.tags.append({'TVEpisode': tvdb_episode['productioncode']})
         self.tags.append({'stik': 'TV Show'})
         self.tags.append({'artwork': 'REMOVE_ALL'})
-        self.tags.append({'hdvideo': hd})
 
         if itunes_episode is not None:
             self.tags.append({'TVShowName': itunes_episode.get_artist().get_name()})
@@ -67,7 +65,7 @@ class Episode_Tags:
             self.tags.append({'cnID': str(itunes_episode.get_id())})
             self.tags.append({'contentRating': itunes_episode.get_content_rating()})
             self.get_itunes_artwork(itunes_season)
-            self.tags.append({'description': itunes_episode.get_short_description()})
+            self.tags.append({'description': itunes_episode.get_long_description()[:252] + (itunes_episode.get_long_description()[252:] and '...')})
             self.tags.append({'longdesc': itunes_episode.get_long_description()})
         else:
             self.tags.append({'TVShowName': tvdb_show['seriesname']})
@@ -170,6 +168,10 @@ class Episode_Tags:
         self.artwork_path = artwork_path
 
 
+    def set_hd(self, hd):
+        self.tags.append({'hdvideo': hd})
+
+
     def get_tags(self):
         command = []
         for tag in self.tags:
@@ -203,6 +205,11 @@ class MP4_Tagger:
             self.tags.set_artwork(artwork + '.jpeg')
             print ' - Local artwork found - ' + artwork + '.jpeg'
 
+        print ' - Scanning video to check HDness'
+        c = Converter(config.get('paths', 'ffmpeg'), config.get('paths', 'ffprobe'))
+        info = c.probe(self.file)
+        self.tags.set_hd('1' if (info.video.video_height >= 700 or info.video.video_width >= 1260) else '0')
+
 
     def write(self):
         print ' - Writing tags to file'
@@ -216,46 +223,28 @@ class MP4_Tagger:
 
 
 
-def main():
-    if len(sys.argv) != 7:
-        print 'Not enough arguments, this script should be called by Sick Beard'
-        sys.exit(1)
+class TagMP4:
+    def __init__(self, cfg, file, tvdb_id, season_num, episode_num):
+        global config
+        config = cfg
+        self.file = file
+        self.tvdb_id = tvdb_id
+        self.season_num = season_num
+        self.episode_num = episode_num
 
-    global config
-    config = ConfigParser.ConfigParser()
-    config_file = os.path.join(os.path.dirname(sys.argv[0]), 'config.cfg')
-    config.read(config_file)
 
-    path = os.path.splitext(sys.argv[1])[0] + config.get('general', 'extension')
-    tvdb_id = int(sys.argv[3])
-    season_num = int(sys.argv[4])
-    episode_num = int(sys.argv[5])
+    def tag(self):
+        print ''
+        print 'Tagging MP4 - ' + self.file
 
-    print ''
-    print 'Tagging MP4 - ' + path
+        tags = Episode_Tags(self.tvdb_id, self.season_num, self.episode_num)
+        tagger = MP4_Tagger(self.file, tags)
 
-    if not os.path.exists(path):
-        print ' @ Error: Path doesn\'t exist'
-        sys.exit(1)
+        tagger.write()
 
-    print ' - Scanning video to check format and HDness'
-    c = Converter(config.get('paths', 'ffmpeg'), config.get('paths', 'ffprobe'))
-    file = c.probe(path)
-
-    if file.format.format.find('mp4') == -1:
-        print ' @ Error: File isn\'t MP4 compatible, we can\'t tag it!'
-        sys.exit(1)
-
-    hd = '1' if (file.video.video_height >= 700 or file.video.video_width >= 1260) else '0'
-
-    tags = Episode_Tags(tvdb_id, season_num, episode_num, hd)
-    tagger = MP4_Tagger(path, tags)
-
-    tagger.write()
-
-    print ' * Done tagging MP4'
+        print ' * Done tagging MP4'
 
 
 
 if __name__ == '__main__':
-    main()
+    raise SystemExit('This file shouldn\'t be run directly')

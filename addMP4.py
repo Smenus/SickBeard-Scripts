@@ -4,7 +4,6 @@ import os
 import sys
 import subprocess
 import textwrap
-import ConfigParser
 from pkg_resources import require
 
 require('tvdb_api')
@@ -13,65 +12,60 @@ from tvdb_api import Tvdb
 
 
 
-def main():
-    if len(sys.argv) != 7:
-        print 'Not enough arguments, this script should be called by Sick Beard'
-        sys.exit(1)
+class AddMP4:
+    def __init__(self, cfg, file, tvdb_id, season_num, episode_num):
+        global config
+        config = cfg
+        self.file = file
+        self.tvdb_id = tvdb_id
+        self.season_num = season_num
+        self.episode_num = episode_num
 
-    config = ConfigParser.ConfigParser()
-    config_file = os.path.join(os.path.dirname(sys.argv[0]), 'config.cfg')
-    config.read(config_file)
 
-    path = os.path.splitext(sys.argv[1])[0] + config.get('general', 'extension')
-    tvdb_id = int(sys.argv[3])
-    season_num = sys.argv[4]
-    episode_num = sys.argv[5]
-    tvdb_instance = Tvdb(cache=True)
-    tvdb_show = tvdb_instance[tvdb_id]
- 
-    print ''
-    print 'Adding file to iTunes - ' + path
-   
-    if not os.path.exists(path):
-        print ' @ Error: Path doesn\'t exist'
-        sys.exit(1)
+    def add(self):
+        print ''
+        print 'Adding file to iTunes - ' + self.file
 
-    osascript_command = [config.get('paths', 'osascript'), '-e']
-    
-    script = textwrap.dedent("""\
-        set p to "%s"
-        set f to POSIX file p
-        set outText to ""
+        tvdb_instance = Tvdb(cache=True)
+        tvdb_show = tvdb_instance[self.tvdb_id]
 
-        set seasonnumber to "%s"
-        set episodenumber to "%s"
-        set seasonname to "%s"
+        osascript_command = [config.get('paths', 'osascript'), '-e']
 
-        set outText to outText & " - Checking to see if episode already exists in iTunes\n"
+        script = textwrap.dedent("""\
+            set p to "%s"
+            set f to POSIX file p
+            set outText to ""
 
-        tell application "iTunes"
-            set theTracks to tracks of library playlist 1 whose show contains (seasonname as string) and season number is (seasonnumber as integer) and episode number is (episodenumber as integer) and video kind is TV show
+            set seasonnumber to "%s"
+            set episodenumber to "%s"
+            set seasonname to "%s"
 
-            repeat with theTrack in theTracks
-                set outText to outText & " - Found in iTunes, deleting previous entry\n"
-                delete theTrack
-            end repeat
+            set outText to outText & " - Checking to see if episode already exists in iTunes\n"
 
-            set outText to outText & " - Sending file to iTunes\n"
-            tell application "iTunes" to add f
-        end tell
+            tell application "iTunes"
+                set theTracks to tracks of library playlist 1 whose show contains (seasonname as string) and season number is (seasonnumber as integer) and episode number is (episodenumber as integer) and video kind is TV show
 
-        return outText""")
+                repeat with theTrack in theTracks
+                    set outText to outText & " - Found in iTunes, deleting previous entry\n"
+                    delete theTrack
+                end repeat
 
-    script = script % (path, season_num, episode_num, tvdb_show['seriesname'])
-    osascript_command.append(script)
+                set outText to outText & " - Sending file to iTunes\n"
+                tell application "iTunes" to add f
+            end tell
 
-    script_output = subprocess.check_output(osascript_command)
+            return outText""")
 
-    print script_output
+        script = script % (self.file, self.season_num, self.episode_num, tvdb_show['seriesname'])
+        osascript_command.append(script)
 
-    print ' * Done adding file to iTunes'
+        script_output = subprocess.check_output(osascript_command)
+
+        print script_output
+
+        print ' * Done adding file to iTunes'
+
 
 
 if __name__ == '__main__':
-    main()
+    raise SystemExit('This file shouldn\'t be run directly')
