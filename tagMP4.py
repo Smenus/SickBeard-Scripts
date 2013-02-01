@@ -158,8 +158,8 @@ class Episode_Tags:
         return xml
 
 
-    def get_local_artwork(self, file):
-        artwork = os.path.join(os.path.dirname(file), config.get('tagMP4', 'artwork_filename'))
+    def get_local_artwork(self):
+        artwork = os.path.join(os.path.dirname(self.file), config.get('tagMP4', 'artwork_filename'))
 
         for ext in ['.png', '.jpg', '.jpeg']:
             if os.path.exists(artwork + ext):
