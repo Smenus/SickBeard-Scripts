@@ -178,17 +178,18 @@ class MP4Maker:
 
 
 class MuxMP4:
-    def __init__(self, cfg, file):
+    def __init__(self, cfg, file, dest_file):
         global config
         config = cfg
         self.file = file
+        self.dest_file = dest_file
 
 
     def mux(self):
         print ''
         print 'Converting file to MP4 - ' + self.file
 
-        maker = MP4Maker(self.file)
+        maker = MP4Maker(self.file, self.dest_file)
         maker.make_mp4()
         maker.optimize_mp4()
         if config.get('makeMP4', 'delete_old') == 'True':
