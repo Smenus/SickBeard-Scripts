@@ -18,17 +18,14 @@ def main():
     config_file = os.path.join(os.path.dirname(sys.argv[0]), 'config.cfg')
     if not os.path.exists(config_file):
         raise SystemExit('Could not find config file')
-    
+
     config.read(config_file)
 
     file = sys.argv[1]
-    m4v_file = os.path.splitext(sys.argv[1])[0] + config.get('general', 'extension')
+    dest_file = os.path.splitext(sys.argv[1])[0] + config.get('general', 'extension')
     tvdb_id = int(sys.argv[3])
     season_num = int(sys.argv[4])
     episode_num = int(sys.argv[5])
-
-    if os.path.splitext(file)[1] == config.get('general', 'extension'):
-        raise SystemExit('File is already an ' + config.get('general', 'extension'))
 
     if not os.path.exists(file):
         raise SystemExit('File doesn\'t exist')
@@ -36,15 +33,20 @@ def main():
     print ''
     print 'Processing file - ' + file
 
-    mux = MuxMP4(config, file)
-    tag = TagMP4(config, m4v_file, tvdb_id, season_num, episode_num)
-    add = AddMP4(config, m4v_file, tvdb_id, season_num, episode_num)
+    if os.path.splitext(file)[1] != config.get('general', 'extension'):
+        mux = MuxMP4(config, file, dest_file)
+        mux.mux()
+    else:
+        print ''
+        print 'File is already an MP4 file'
 
-    mux.mux()
+    tag = TagMP4(config, dest_file, tvdb_id, season_num, episode_num)
     tag.tag()
+
+    add = AddMP4(config, dest_file, tvdb_id, season_num, episode_num)
     add.add()
 
-    print ' * Done processing file'
+    print 'Done processing file'
 
 
 

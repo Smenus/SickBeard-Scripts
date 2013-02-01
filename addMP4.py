@@ -8,7 +8,7 @@ from pkg_resources import require
 
 require('tvdb_api')
 
-from tvdb_api import Tvdb
+from tvdb_api import (Tvdb, tvdb_error)
 
 
 
@@ -26,8 +26,13 @@ class AddMP4:
         print ''
         print 'Adding file to iTunes - ' + self.file
 
-        tvdb_instance = Tvdb(cache=True)
-        tvdb_show = tvdb_instance[self.tvdb_id]
+        try:
+            tvdb_instance = Tvdb(cache=True)
+            tvdb_show = tvdb_instance[self.tvdb_id]
+            seriesname = tvdb_show['seriesname']
+        except tvdb_error, errormsg:
+            print ' @ Error: Could not fetch episode information - %s' % errormsg
+            seriesname = ''
 
         osascript_command = [config.get('paths', 'osascript'), '-e']
 
@@ -38,17 +43,19 @@ class AddMP4:
 
             set seasonnumber to "%s"
             set episodenumber to "%s"
-            set seasonname to "%s"
-
-            set outText to outText & " - Checking to see if episode already exists in iTunes\n"
+            set seriesname to "%s"
 
             tell application "iTunes"
-                set theTracks to tracks of library playlist 1 whose show contains (seasonname as string) and season number is (seasonnumber as integer) and episode number is (episodenumber as integer) and video kind is TV show
+                if seriesname is not "" then
+                    set outText to outText & " - Checking to see if episode already exists in iTunes\n"
 
-                repeat with theTrack in theTracks
-                    set outText to outText & " - Found in iTunes, deleting previous entry\n"
-                    delete theTrack
-                end repeat
+                    set theTracks to tracks of library playlist 1 whose show contains (seriesname as string) and season number is (seasonnumber as integer) and episode number is (episodenumber as integer) and video kind is TV show
+
+                    repeat with theTrack in theTracks
+                        set outText to outText & " - Found in iTunes, deleting previous entry\n"
+                        delete theTrack
+                    end repeat
+                end if
 
                 set outText to outText & " - Sending file to iTunes\n"
                 tell application "iTunes" to add f
@@ -56,7 +63,7 @@ class AddMP4:
 
             return outText""")
 
-        script = script % (self.file, self.season_num, self.episode_num, tvdb_show['seriesname'])
+        script = script % (self.file, self.season_num, self.episode_num, seriesname)
         osascript_command.append(script)
 
         script_output = subprocess.check_output(osascript_command)

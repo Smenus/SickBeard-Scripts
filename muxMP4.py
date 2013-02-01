@@ -14,8 +14,9 @@ from lockfile import FileLock
 
 
 class MP4Maker:
-    def __init__(self, file):
+    def __init__(self, file, dest_file):
         self.file = file
+        self.dest_file = dest_file
 
 
     def make_mp4(self):
@@ -129,6 +130,7 @@ class MP4Maker:
     def _extract_subtitles(self):
         if self.copy_subtitles:
             print ' - Extracting subtitles'
+            self.subtitle_file = os.path.splitext(self.file)[0] + '.srt'
             ffmpeg_subtitle_command = [config.get('paths', 'ffmpeg'), '-v', 'error', '-nostats', '-i', self.file]
             ffmpeg_subtitle_command.append('-an')
             ffmpeg_subtitle_command.append('-vn')
@@ -137,7 +139,7 @@ class MP4Maker:
             ffmpeg_subtitle_command.append('-copyinkf')
             ffmpeg_subtitle_command.append('-f')
             ffmpeg_subtitle_command.append('srt')
-            ffmpeg_subtitle_command.append(os.path.splitext(self.file)[0] + '.srt')
+            ffmpeg_subtitle_command.append(self.subtitle_file)
             if config.get('general', 'debug') == 'True':
                 print ffmpeg_subtitle_command
             subprocess.check_call(ffmpeg_subtitle_command)
@@ -147,7 +149,7 @@ class MP4Maker:
         print ' - Getting lock file'
         with FileLock(os.path.join(os.path.dirname(sys.argv[0]), 'ffmpeg-running')):
             print ' - Converting to MP4'
-            self.ffmpeg_command.append(os.path.splitext(self.file)[0] + config.get('general', 'extension'))
+            self.ffmpeg_command.append(self.dest_file)
             if config.get('general', 'debug') == 'True':
                 print self.ffmpeg_command
             subprocess.check_call(self.ffmpeg_command)
@@ -160,8 +162,8 @@ class MP4Maker:
             self.mp4box_command.append('3')
         if self.copy_subtitles:
             self.mp4box_command.append('-add')
-            self.mp4box_command.append(os.path.splitext(self.file)[0] + '.srt')
-        self.mp4box_command.append(os.path.splitext(self.file)[0] + config.get('general', 'extension'))
+            self.mp4box_command.append(self.subtitle_file)
+        self.mp4box_command.append(self.dest_file)
 
 
     def _run_mp4box(self):
@@ -171,7 +173,7 @@ class MP4Maker:
         subprocess.check_call(self.mp4box_command)
         if self.copy_subtitles:
             print ' - Removing extracted subtitles'
-            os.remove(os.path.splitext(self.file)[0] + '.srt')
+            os.remove(self.subtitle_file)
 
 
 

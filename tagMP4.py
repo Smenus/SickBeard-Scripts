@@ -6,6 +6,7 @@ import subprocess
 import pipes
 import urllib
 import StringIO
+import re
 from pkg_resources import require
 
 require('python-itunes')
@@ -14,43 +15,47 @@ require('tvdb_api')
 
 import itunes
 from converter import Converter
-from tvdb_api import Tvdb
+from tvdb_api import (Tvdb, tvdb_error)
+
+import patterns
 
 
 
 class Episode_Tags:
-    def __init__(self, tvdb_id, season_num, episode_num):
+    def __init__(self, tvdb_id, season_num, episode_num, path):
         self.tags = []
 
         print ' - Fetching information'
 
         tvdb_instance = Tvdb(cache=True, banners=True, actors=True)
-        tvdb_show = tvdb_instance[tvdb_id]
-        tvdb_episode = tvdb_show[season_num][episode_num]
+        try:
+            tvdb_show = tvdb_instance[tvdb_id]
+            tvdb_episode = tvdb_show[season_num][episode_num]
 
-        itunes_episodes = itunes.search_episode(tvdb_show['seriesname'] + ' ' + tvdb_episode['episodename'])
-        if len(itunes_episodes) > 0:
-            itunes_episode = itunes_episodes[0]
-            itunes_season = itunes_episode.get_album()
-            print ' - iTunes episode information found'
-        else:
-            itunes_episode = None
-            itunes_season = itunes.search_season(tvdb_show['seriesname'] + ', Season ' + str(season_num))
-            print ' - No iTunes episode information found'
-            if len(itunes_season) == 0:
-                itunes_season = None
-                print ' - No iTunes season information found'
+            itunes_episodes = itunes.search_episode(tvdb_show['seriesname'] + ' ' + tvdb_episode['episodename'])
+            if len(itunes_episodes) > 0:
+                itunes_episode = itunes_episodes[0]
+                itunes_season = itunes_episode.get_album()
+                print ' - iTunes episode information found'
             else:
-                itunes_season = itunes_season[0]
-                print ' - iTunes season information found'
+                itunes_episode = None
+                itunes_season = itunes.search_season(tvdb_show['seriesname'] + ', Season ' + str(season_num))
+                print ' - No iTunes episode information found'
+                if len(itunes_season) == 0:
+                    itunes_season = None
+                    print ' - No iTunes season information found'
+                else:
+                    itunes_season = itunes_season[0]
+                    print ' - iTunes season information found'
+        except tvdb_error, errormsg:
+            print ' @ Error: Could not fetch episode information - %s' % errormsg
+            itunes_episode = None
+            tvdb_show = None
 
         self.tags.append({'TVSeasonNum': str(season_num)})
         self.tags.append({'TVEpisodeNum': str(episode_num)})
         self.tags.append({'disk': '1/1'})
-        self.tags.append({'TVNetwork': tvdb_show['network']})
-        self.tags.append({'TVEpisode': tvdb_episode['productioncode']})
         self.tags.append({'stik': 'TV Show'})
-        self.tags.append({'artwork': 'REMOVE_ALL'})
 
         if itunes_episode is not None:
             self.tags.append({'TVShowName': itunes_episode.get_artist().get_name()})
@@ -67,7 +72,7 @@ class Episode_Tags:
             self.get_itunes_artwork(itunes_season)
             self.tags.append({'description': itunes_episode.get_long_description()[:252] + (itunes_episode.get_long_description()[252:] and '...')})
             self.tags.append({'longdesc': itunes_episode.get_long_description()})
-        else:
+        elif tvdb_show is not None:
             self.tags.append({'TVShowName': tvdb_show['seriesname']})
             self.tags.append({'artist': tvdb_show['seriesname']})
             self.tags.append({'title': tvdb_episode['episodename']})
@@ -80,10 +85,20 @@ class Episode_Tags:
                 self.get_tvdb_artwork(tvdb_show, season_num)
             else:
                 self.get_itunes_artwork(itunes_season)
+            self.tags.append({'TVNetwork': tvdb_show['network']})
+            self.tags.append({'TVEpisode': tvdb_episode['productioncode']})
             self.tags.append({'description': tvdb_episode['overview'][:252] + (tvdb_episode['overview'][252:] and '...')})
             self.tags.append({'longdesc': tvdb_episode['overview']})
+        else:
+            fp = Filename_Parser(path)
+            seriesname = fp.parse()
+            self.tags.append({'TVShowName': seriesname})
+            self.tags.append({'artist': seriesname})
+            self.tags.append({'title': os.path.splitext(os.path.split(path)[1])[0]})
+            self.tags.append({'album': seriesname + ', Season ' + str(season_num)})
+            self.tags.append({'tracknum': str(episode_num)})
 
-        if config.get('tagMP4', 'add_people') == 'True':
+        if config.get('tagMP4', 'add_people') == 'True' and tvdb_show is not None:
             print ' - Adding cast and crew information'
             self.xml = self.gen_XML(tvdb_show, tvdb_episode)
 
@@ -178,9 +193,10 @@ class Episode_Tags:
             if tag.values()[0] is not None:
                 command.append('--' + tag.keys()[0])
                 command.append(tag.values()[0])
-        command.append('--artwork')
-        command.append(self.artwork_path)
-        if config.get('tagMP4', 'add_people') == 'True':
+        if hasattr(self, 'artwork_path'):
+            command.append('--artwork')
+            command.append(self.artwork_path)
+        if config.get('tagMP4', 'add_people') == 'True' and hasattr(self, 'xml'):
             command.append('--rDNSatom')
             command.append(self.xml)
             command.append('name=iTunMOVI')
@@ -215,11 +231,79 @@ class MP4_Tagger:
         print ' - Writing tags to file'
         environment = os.environ.copy()
         environment['PIC_OPTIONS'] = 'removeTempPix'
-        command = [config.get('paths', 'atomicparsley'), self.file, '--overWrite']
+        command = [config.get('paths', 'atomicparsley'), self.file, '--overWrite', '--metaEnema', '--artwork', 'REMOVE_ALL']
         command.extend(self.tags.get_tags())
         if config.get('general', 'debug') == 'True':
             print command
         subprocess.check_output(command, env = environment)
+
+
+
+class Filename_Parser:
+    def __init__(self, file):
+        self.path = file
+        self.compiled_regexs = []
+        self._compile_regexs()
+
+
+    def parse(self):
+        """Runs path via configured regex, extracting data from groups.
+        Returns an EpisodeInfo instance containing extracted data.
+        """
+        _, filename = os.path.split(self.path)
+
+        for cmatcher in self.compiled_regexs:
+            match = cmatcher.match(filename)
+            if match:
+                namedgroups = match.groupdict().keys()
+
+                if 'seriesname' in namedgroups:
+                    seriesname = match.group('seriesname')
+                else:
+                    raise ConfigValueError(
+                        "Regex must contain seriesname. Pattern was:\n" + cmatcher.pattern)
+
+                if seriesname != None:
+                    seriesname = self._clean_series_name(seriesname)
+
+                return seriesname
+        else:
+            return filename
+
+
+    def _clean_series_name(self, seriesname):
+        """Cleans up series name by removing any . and _
+        characters, along with any trailing hyphens.
+
+        Is basically equivalent to replacing all _ and . with a
+        space, but handles decimal numbers in string, for example:
+
+        >>> cleanRegexedSeriesName("an.example.1.0.test")
+        'an example 1.0 test'
+        >>> cleanRegexedSeriesName("an_example_1.0_test")
+        'an example 1.0 test'
+        """
+        seriesname = re.sub("(\D)[.](\D)", "\\1 \\2", seriesname)
+        seriesname = re.sub("(\D)[.]", "\\1 ", seriesname)
+        seriesname = re.sub("[.](\D)", " \\1", seriesname)
+        seriesname = seriesname.replace("_", " ")
+        seriesname = re.sub("-$", "", seriesname)
+        return seriesname.strip()
+
+
+    def _compile_regexs(self):
+        """Takes episode_patterns from config, compiles them all
+        into self.compiled_regexs
+        """
+        for cpattern in patterns.filename_patterns:
+            try:
+                cregex = re.compile(cpattern, re.VERBOSE)
+            except re.error, errormsg:
+                warn("WARNING: Invalid episode_pattern (error: %s)\nPattern:\n%s" % (
+                    errormsg, cpattern))
+            else:
+                self.compiled_regexs.append(cregex)
+
 
 
 
@@ -237,7 +321,7 @@ class TagMP4:
         print ''
         print 'Tagging MP4 - ' + self.file
 
-        tags = Episode_Tags(self.tvdb_id, self.season_num, self.episode_num)
+        tags = Episode_Tags(self.tvdb_id, self.season_num, self.episode_num, self.file)
         tagger = MP4_Tagger(self.file, tags)
 
         tagger.write()
