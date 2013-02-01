@@ -58,6 +58,10 @@ class Episode_Tags:
         self.tags.append({'disk': '1/1'})
         self.tags.append({'stik': 'TV Show'})
 
+        if tvdb_show is not None and tvdb_episode is not None:
+            self.tags.append({'TVNetwork': tvdb_show['network']})
+            self.tags.append({'TVEpisode': tvdb_episode['productioncode']})
+
         if itunes_episode is not None:
             self.tags.append({'TVShowName': itunes_episode.get_artist().get_name()})
             self.tags.append({'artist': itunes_episode.get_artist().get_name()})
@@ -73,6 +77,7 @@ class Episode_Tags:
             self.get_itunes_artwork(itunes_season)
             self.tags.append({'description': itunes_episode.get_long_description()[:252] + (itunes_episode.get_long_description()[252:] and '...')})
             self.tags.append({'longdesc': itunes_episode.get_long_description()})
+            self.tags.append({'comment': 'Tagged with iTunes metadata'})
         elif tvdb_show is not None:
             self.tags.append({'TVShowName': tvdb_show['seriesname']})
             self.tags.append({'artist': tvdb_show['seriesname']})
@@ -86,10 +91,9 @@ class Episode_Tags:
                 self.get_tvdb_artwork(tvdb_show, season_num)
             else:
                 self.get_itunes_artwork(itunes_season)
-            self.tags.append({'TVNetwork': tvdb_show['network']})
-            self.tags.append({'TVEpisode': tvdb_episode['productioncode']})
             self.tags.append({'description': tvdb_episode['overview'][:252] + (tvdb_episode['overview'][252:] and '...')})
             self.tags.append({'longdesc': tvdb_episode['overview']})
+            self.tags.append({'comment': 'Tagged with TheTVDB metadata'})
         else:
             fp = Filename_Parser(file)
             seriesname = fp.parse()
