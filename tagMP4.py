@@ -22,8 +22,9 @@ import patterns
 
 
 class Episode_Tags:
-    def __init__(self, tvdb_id, season_num, episode_num, path):
+    def __init__(self, tvdb_id, season_num, episode_num, file):
         self.tags = []
+        self.file = file
 
         print ' - Fetching information'
 
@@ -90,13 +91,15 @@ class Episode_Tags:
             self.tags.append({'description': tvdb_episode['overview'][:252] + (tvdb_episode['overview'][252:] and '...')})
             self.tags.append({'longdesc': tvdb_episode['overview']})
         else:
-            fp = Filename_Parser(path)
+            fp = Filename_Parser(file)
             seriesname = fp.parse()
             self.tags.append({'TVShowName': seriesname})
             self.tags.append({'artist': seriesname})
-            self.tags.append({'title': os.path.splitext(os.path.split(path)[1])[0]})
+            self.tags.append({'title': os.path.splitext(os.path.split(file)[1])[0]})
             self.tags.append({'album': seriesname + ', Season ' + str(season_num)})
             self.tags.append({'tracknum': str(episode_num)})
+
+        self.get_local_artwork()
 
         if config.get('tagMP4', 'add_people') == 'True' and tvdb_show is not None:
             print ' - Adding cast and crew information'
@@ -155,6 +158,15 @@ class Episode_Tags:
         return xml
 
 
+    def get_local_artwork(self, file):
+        artwork = os.path.join(os.path.dirname(file), config.get('tagMP4', 'artwork_filename'))
+
+        for ext in ['.png', '.jpg', '.jpeg']:
+            if os.path.exists(artwork + ext):
+                print ' - Local artwork found - ' + artwork + ext
+                self.artwork_path = artwork + ext
+
+
     def get_itunes_artwork(self, itunes_season):
         artwork100 = itunes_season.get_artwork()['100']
         artwork600 = artwork100.replace('100x100', '600x600')
@@ -177,10 +189,6 @@ class Episode_Tags:
             return float(k['rating'])
         else:
             return 0
-
-
-    def set_artwork(self, artwork_path):
-        self.artwork_path = artwork_path
 
 
     def set_hd(self, hd):
@@ -210,17 +218,6 @@ class MP4_Tagger:
         self.file = file
         self.tags = tags
 
-        artwork = os.path.join(os.path.dirname(file), config.get('tagMP4', 'artwork_filename'))
-        if os.path.exists(artwork + '.png'):
-            self.tags.set_artwork(artwork + '.png')
-            print ' - Local artwork found - ' + artwork + '.png'
-        elif os.path.exists(artwork + '.jpg'):
-            self.tags.set_artwork(artwork + '.jpg')
-            print ' - Local artwork found - ' + artwork + '.jpg'
-        elif os.path.exists(artwork + '.jpeg'):
-            self.tags.set_artwork(artwork + '.jpeg')
-            print ' - Local artwork found - ' + artwork + '.jpeg'
-
         print ' - Scanning video to check HDness'
         c = Converter(config.get('paths', 'ffmpeg'), config.get('paths', 'ffprobe'))
         info = c.probe(self.file)
@@ -241,7 +238,7 @@ class MP4_Tagger:
 
 class Filename_Parser:
     def __init__(self, file):
-        self.path = file
+        self.file = file
         self.compiled_regexs = []
         self._compile_regexs()
 
@@ -250,7 +247,7 @@ class Filename_Parser:
         """Runs path via configured regex, extracting data from groups.
         Returns an EpisodeInfo instance containing extracted data.
         """
-        _, filename = os.path.split(self.path)
+        _, filename = os.path.split(self.file)
 
         for cmatcher in self.compiled_regexs:
             match = cmatcher.match(filename)
