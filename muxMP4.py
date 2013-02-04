@@ -23,12 +23,8 @@ class MP4Maker:
         self._scan_input()
         self._set_ffmpeg_video()
         self._set_ffmpeg_audio()
-        self._extract_subtitles()
+        self._set_ffmpeg_subtitles()
         self._run_ffmpeg()
-
-
-    def optimize_mp4(self):
-        self._set_mp4box()
         self._run_mp4box()
 
 
@@ -57,16 +53,11 @@ class MP4Maker:
                 self.video_kind = stream.codec
                 self.video_hd = True if (stream.video_height >= 700 or stream.video_width >= 1260) else False
             elif stream.type == 'subtitle':
-                subtitle_count += 1
                 if stream.codec == 'subrip':
                     self.copy_subtitles = True
 
         if audio_count != 1 or video_count != 1:
             raise SystemExit('More than 1 video or audio stream, you\'d best check this file manually')
-
-        if subtitle_count > 1:
-            print ' ~ Warning: More than 1 subtitle stream, and I have no idea how to handle that with ffmpeg'
-            self.copy_subtitles = False
 
         self.ffmpeg_command = [config.get('paths', 'ffmpeg'), '-v', 'error', '-nostats', '-i', self.file]
 
@@ -104,6 +95,8 @@ class MP4Maker:
             self.ffmpeg_command.append(config.get('makeMP4', 'aac_lib'))
             self.ffmpeg_command.append(config.get('makeMP4', 'aac_q_cmd') + ':a:0')
             self.ffmpeg_command.append(config.get('makeMP4', 'aac_q'))
+            self.ffmpeg_command.append('-afterburner')
+            self.ffmpeg_command.append('1')
             self.ffmpeg_command.append('-ac:a:0')
             self.ffmpeg_command.append('2')
         elif self.audio_kind == 'aac':
@@ -119,6 +112,8 @@ class MP4Maker:
             self.ffmpeg_command.append(config.get('makeMP4', 'aac_lib'))
             self.ffmpeg_command.append(config.get('makeMP4', 'aac_q_cmd') + ':a:0')
             self.ffmpeg_command.append(config.get('makeMP4', 'aac_q'))
+            self.ffmpeg_command.append('-afterburner')
+            self.ffmpeg_command.append('1')
             self.ffmpeg_command.append('-ac:a:0')
             self.ffmpeg_command.append('2')
             self.ffmpeg_command.append('-map')
@@ -127,53 +122,40 @@ class MP4Maker:
             self.ffmpeg_command.append('copy')
 
 
-    def _extract_subtitles(self):
+    def _set_ffmpeg_subtitles(self):
         if self.copy_subtitles:
-            print ' - Extracting subtitles'
-            self.subtitle_file = os.path.splitext(self.file)[0] + '.srt'
-            ffmpeg_subtitle_command = [config.get('paths', 'ffmpeg'), '-v', 'error', '-nostats', '-i', self.file]
-            ffmpeg_subtitle_command.append('-an')
-            ffmpeg_subtitle_command.append('-vn')
-            ffmpeg_subtitle_command.append('-scodec')
-            ffmpeg_subtitle_command.append('copy')
-            ffmpeg_subtitle_command.append('-copyinkf')
-            ffmpeg_subtitle_command.append('-f')
-            ffmpeg_subtitle_command.append('srt')
-            ffmpeg_subtitle_command.append(self.subtitle_file)
-            if config.get('general', 'debug') == 'True':
-                print ffmpeg_subtitle_command
-            subprocess.check_call(ffmpeg_subtitle_command)
+            print ' - Setting subtitle options'
+            self.ffmpeg_command.append('-map')
+            self.ffmpeg_command.append('0:s')
+            self.ffmpeg_command.append('-c:s')
+            self.ffmpeg_command.append('mov_text')
 
 
     def _run_ffmpeg(self):
         print ' - Getting lock file'
         with FileLock(os.path.join(os.path.dirname(sys.argv[0]), 'ffmpeg-running')):
             print ' - Converting to MP4'
+            self.ffmpeg_command.append('-f')
+            self.ffmpeg_command.append('mp4')
+            # faststart not needed as AtomicParsley with do it
+            #self.ffmpeg_command.append('-movflags')
+            #self.ffmpeg_command.append('faststart')
             self.ffmpeg_command.append(self.dest_file)
             if config.get('general', 'debug') == 'True':
                 print self.ffmpeg_command
             subprocess.check_call(self.ffmpeg_command)
 
 
-    def _set_mp4box(self):
-        self.mp4box_command = [config.get('paths', 'mp4box'), '-noprog', '-tmp', os.path.dirname(self.file)]
+    def _run_mp4box(self):
         if self.multiple_audio:
+            print ' - Disabling 2nd audio track'
+            self.mp4box_command = [config.get('paths', 'mp4box'), '-noprog', '-tmp', os.path.dirname(self.dest_file)]
             self.mp4box_command.append('-disable')
             self.mp4box_command.append('3')
-        if self.copy_subtitles:
-            self.mp4box_command.append('-add')
-            self.mp4box_command.append(self.subtitle_file)
-        self.mp4box_command.append(self.dest_file)
-
-
-    def _run_mp4box(self):
-        print ' - Optimizing MP4'
-        if config.get('general', 'debug') == 'True':
-            print self.mp4box_command
-        subprocess.check_call(self.mp4box_command)
-        if self.copy_subtitles:
-            print ' - Removing extracted subtitles'
-            os.remove(self.subtitle_file)
+            self.mp4box_command.append(self.dest_file)            
+            if config.get('general', 'debug') == 'True':
+                print self.mp4box_command
+            subprocess.check_call(self.mp4box_command)
 
 
 
@@ -191,7 +173,6 @@ class MuxMP4:
 
         maker = MP4Maker(self.file, self.dest_file)
         maker.make_mp4()
-        maker.optimize_mp4()
         if config.get('makeMP4', 'delete_old') == 'True':
             print ' - Removing old file'
             maker.remove_old()

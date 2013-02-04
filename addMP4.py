@@ -46,6 +46,8 @@ class AddMP4:
             set seriesname to "%s"
 
             tell application "iTunes"
+                set playcount to 0
+                set lastplayed to missing value
                 if seriesname is not "" then
                     set outText to outText & " - Checking to see if episode already exists in iTunes\n"
 
@@ -53,12 +55,16 @@ class AddMP4:
 
                     repeat with theTrack in theTracks
                         set outText to outText & " - Found in iTunes, deleting previous entry\n"
+                        set playcount to played count of theTrack
+                        set lastplayed to played date of theTrack
                         delete theTrack
                     end repeat
                 end if
 
                 set outText to outText & " - Sending file to iTunes\n"
-                tell application "iTunes" to add f
+                set newFile to (add f)
+                set played count of newFile to playcount
+                set played date of newFile to lastplayed
             end tell
 
             return outText""")

@@ -7,15 +7,18 @@ import pipes
 import urllib
 import StringIO
 import re
+import time
 from pkg_resources import require
 
 require('python-itunes')
 require('VideoConverter')
 require('tvdb_api')
+require('python-dateutil')
 
 import itunes
 from converter import Converter
 from tvdb_api import (Tvdb, tvdb_error)
+import dateutil.parser
 
 import patterns
 
@@ -25,6 +28,7 @@ class Episode_Tags:
     def __init__(self, tvdb_id, season_num, episode_num, file):
         self.tags = []
         self.file = file
+        self.artwork_path = None
 
         print ' - Fetching information'
 
@@ -58,6 +62,8 @@ class Episode_Tags:
         self.tags.append({'disk': '1/1'})
         self.tags.append({'stik': 'TV Show'})
 
+        self.get_local_artwork()
+
         if tvdb_show is not None and tvdb_episode is not None:
             self.tags.append({'TVNetwork': tvdb_show['network']})
             self.tags.append({'TVEpisode': tvdb_episode['productioncode']})
@@ -74,7 +80,8 @@ class Episode_Tags:
             self.tags.append({'advisory': ('clean' if itunes_episode.get_explicitness() == 'notExplicit' else 'explicit')})
             self.tags.append({'cnID': str(itunes_episode.get_id())})
             self.tags.append({'contentRating': itunes_episode.get_content_rating()})
-            self.get_itunes_artwork(itunes_season)
+            if self.artwork_path is None:
+                self.get_itunes_artwork(itunes_season)
             self.tags.append({'description': itunes_episode.get_long_description()[:252] + (itunes_episode.get_long_description()[252:] and '...')})
             self.tags.append({'longdesc': itunes_episode.get_long_description()})
             self.tags.append({'comment': 'Tagged with iTunes metadata'})
@@ -83,14 +90,15 @@ class Episode_Tags:
             self.tags.append({'artist': tvdb_show['seriesname']})
             self.tags.append({'title': tvdb_episode['episodename']})
             self.tags.append({'album': tvdb_show['seriesname'] + ', Season ' + str(season_num)})
-            self.tags.append({'genre': tvdb_show['genre']})
+            self.tags.append({'genre': tvdb_show['genre'].strip('|').split('|')[0]})
             self.tags.append({'tracknum': str(episode_num) + '/' + str(len(tvdb_show[season_num]))})
             self.tags.append({'year': tvdb_episode['firstaired']})
             self.tags.append({'cnID': tvdb_episode['id']})
-            if itunes_season is None:
-                self.get_tvdb_artwork(tvdb_show, season_num)
-            else:
-                self.get_itunes_artwork(itunes_season)
+            if self.artwork_path is None:
+                if itunes_season is None:
+                    self.get_tvdb_artwork(tvdb_show, season_num)
+                else:
+                    self.get_itunes_artwork(itunes_season)
             self.tags.append({'description': tvdb_episode['overview'][:252] + (tvdb_episode['overview'][252:] and '...')})
             self.tags.append({'longdesc': tvdb_episode['overview']})
             self.tags.append({'comment': 'Tagged with TheTVDB metadata'})
@@ -102,8 +110,6 @@ class Episode_Tags:
             self.tags.append({'title': os.path.splitext(os.path.split(file)[1])[0]})
             self.tags.append({'album': seriesname + ', Season ' + str(season_num)})
             self.tags.append({'tracknum': str(episode_num)})
-
-        self.get_local_artwork()
 
         if config.get('tagMP4', 'add_people') == 'True' and tvdb_show is not None:
             print ' - Adding cast and crew information'
@@ -127,7 +133,7 @@ class Episode_Tags:
         directors = tvdb_episode['director']
         if directors is not None:
             output.write(directorheader)
-            for director in directors.split('|'):
+            for director in directors.strip('|').split('|'):
                 if director != '':
                     output.write(nameheader)
                     output.write(director)
@@ -137,7 +143,7 @@ class Episode_Tags:
         writers = tvdb_episode['writer']
         if writers is not None:
             output.write(writerheader)
-            for writer in writers.split('|'):
+            for writer in writers.strip('|').split('|'):
                 if writer != '':
                     output.write(nameheader)
                     output.write(writer)
@@ -239,6 +245,18 @@ class MP4_Tagger:
         subprocess.check_output(command, env = environment)
 
 
+    def update_times(self):
+        print ' - Updating file creation and modification times'
+        airdate = None
+        for tag in self.tags:
+            if 'year' in tag:
+                airdate = tag['year']
+        if airdate is not None:
+            airdate = dateutil.parser.parse(airdate)
+            file_date = time.mktime(airdate.timetuple())
+            os.utime(self.file, (file_date, file_date))
+
+
 
 class Filename_Parser:
     def __init__(self, file):
@@ -326,6 +344,7 @@ class TagMP4:
         tagger = MP4_Tagger(self.file, tags)
 
         tagger.write()
+        tagger.update_times()
 
         print ' * Done tagging MP4'
 
