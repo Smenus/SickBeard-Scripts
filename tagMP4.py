@@ -29,6 +29,7 @@ class Episode_Tags:
         self.tags = []
         self.file = file
         self.artwork_path = None
+        self.airdate = None
 
         print ' - Fetching information'
 
@@ -76,6 +77,7 @@ class Episode_Tags:
             self.tags.append({'genre': itunes_episode.get_genre()})
             self.tags.append({'tracknum': str(episode_num) + '/' + str(itunes_season.get_track_count())})
             self.tags.append({'year': itunes_episode.get_release_date_raw()})
+            self.airdate = itunes_episode.get_release_date_raw()
             self.tags.append({'copyright': itunes_season.get_copyright()})
             self.tags.append({'advisory': ('clean' if itunes_episode.get_explicitness() == 'notExplicit' else 'explicit')})
             self.tags.append({'cnID': str(itunes_episode.get_id())})
@@ -93,6 +95,7 @@ class Episode_Tags:
             self.tags.append({'genre': tvdb_show['genre'].strip('|').split('|')[0]})
             self.tags.append({'tracknum': str(episode_num) + '/' + str(len(tvdb_show[season_num]))})
             self.tags.append({'year': tvdb_episode['firstaired']})
+            self.airdate = tvdb_episode['firstaired']
             self.tags.append({'cnID': tvdb_episode['id']})
             if self.artwork_path is None:
                 if itunes_season is None:
@@ -205,6 +208,10 @@ class Episode_Tags:
         self.tags.append({'hdvideo': hd})
 
 
+    def get_airdate(self):
+        return self.airdate
+
+
     def get_tags(self):
         command = []
         for tag in self.tags:
@@ -247,10 +254,7 @@ class MP4_Tagger:
 
     def update_times(self):
         print ' - Updating file creation and modification times'
-        airdate = None
-        for tag in self.tags:
-            if 'year' in tag:
-                airdate = tag['year']
+        airdate = self.tags.get_airdate()
         if airdate is not None:
             airdate = dateutil.parser.parse(airdate)
             file_date = time.mktime(airdate.timetuple())
