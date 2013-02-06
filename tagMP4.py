@@ -43,8 +43,8 @@ class Episode_Tags:
         tvdb_instance = Tvdb(cache=True, banners=True, actors=True)
         
         try:
-            self.tvdb_show = tvdb_instance[tvdb_id]
-            self.tvdb_episode = self.tvdb_show[season_num][episode_num]
+            self.tvdb_show = tvdb_instance[self.tvdb_id]
+            self.tvdb_episode = self.tvdb_show[self.season_num][self.episode_num]
         except tvdb_error, errormsg:
             print ' - Warning - Could not fetch TheTVDB metadata - %s' % errormsg
             self.tvdb_show = None
@@ -87,7 +87,7 @@ class Episode_Tags:
     def _get_metadata(self):
         self._fetch_tvdb()
         self._fetch_itunes()
-        
+
         print ' - Get metadata from discovered source'
 
         tags = []
