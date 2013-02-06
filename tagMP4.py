@@ -71,7 +71,7 @@ class Episode_Tags:
             fp = Filename_Parser(self.file)
             seriesname = re.sub("(.*?) \(\d\d\d\d\)", "\\1", fp.parse())
 
-            self.itunes_season = itunes.search_season(seriesname + ', Season ' + str(self.season_num))
+            self.itunes_season = itunes.search_season(seriesname + ', Season ' + str(self.season_num))[0]
             itunes_episodes = self.itunes_season.get_tracks()
 
             for ep in itunes_episodes:
