@@ -1,14 +1,9 @@
 #!/usr/local/bin/python
 
-import os
-import sys
 import subprocess
 import textwrap
-from pkg_resources import require
 
-require('tvdb_api')
-
-from tvdb_api import (Tvdb, tvdb_error)
+from utils import (Metadata_Source, Filename_Parser)
 
 
 
@@ -26,13 +21,17 @@ class AddMP4:
         print ''
         print 'Adding file to iTunes - ' + self.file
 
-        try:
-            tvdb_instance = Tvdb(cache=True)
-            tvdb_show = tvdb_instance[self.tvdb_id]
+        source = Metadata_Source()
+        tvdb_show, tvdb_episode = source.get_tvdb(self.tvdb_id, self.season_num, self.episode_num)
+        _, itunes_episode = source.get_itunes(tvdb_show, tvdb_episode, self.season_num, self.episode_num, self.file)
+
+        if itunes_episode is not None:
+            seriesname = itunes_episode.get_artist().get_name()
+        elif tvdb_show is not None:
             seriesname = tvdb_show['seriesname']
-        except tvdb_error, errormsg:
-            print ' @ Error: Could not fetch episode information - %s' % errormsg
-            seriesname = ''
+        else:
+            fp = Filename_Parser()
+            seriesname = fp.parse(self.file)
 
         osascript_command = [config.get('paths', 'osascript'), '-e']
 
