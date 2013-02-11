@@ -40,16 +40,20 @@ class Metadata_Source:
             print ' - Getting iTunes metadata from TheTVDB metadata'
 
             seriesname = re.sub("(.*?) \(\d\d\d\d\)", "\\1", tvdb_show['seriesname'])
-            itunes_episodes = itunes.search_episode(seriesname + ' ' + tvdb_episode['episodename'])
 
-            for ep in itunes_episodes:
+            for ep in itunes.search_episode(seriesname + ' ' + tvdb_episode['episodename']):
                 if difflib.SequenceMatcher(None, tvdb_episode['episodename'].lower(), ep.get_name().lower()).ratio() >= self.itunes_match:
                     return (ep.get_album(), ep)
             
             # Couldn't find exact match for episode name, try searching for season first
-            itunes_seasons = itunes.search_season(seriesname + ', Season ' + str(season_num))
+            for season in itunes.search_season(seriesname + ', Season ' + str(season_num)):
+                if difflib.SequenceMatcher(None, seriesname.lower(), season.get_artist().get_name().lower()).ratio() >= self.itunes_match:
+                    for ep in season.get_tracks():
+                        if difflib.SequenceMatcher(None, tvdb_episode['episodename'].lower(), ep.get_name().lower()).ratio() >= self.itunes_match:
+                            return (season, ep)
 
-            for season in itunes_seasons:
+            # Last try, without season number
+            for season in itunes.search_season(seriesname):
                 if difflib.SequenceMatcher(None, seriesname.lower(), season.get_artist().get_name().lower()).ratio() >= self.itunes_match:
                     for ep in season.get_tracks():
                         if difflib.SequenceMatcher(None, tvdb_episode['episodename'].lower(), ep.get_name().lower()).ratio() >= self.itunes_match:
