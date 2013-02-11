@@ -21,7 +21,7 @@ class AddMP4:
         print ''
         print 'Adding file to iTunes - ' + self.file
 
-        source = Metadata_Source()
+        source = Metadata_Source(float(config.get('tagMP4', 'itunes_match')))
         tvdb_show, tvdb_episode = source.get_tvdb(self.tvdb_id, self.season_num, self.episode_num)
         _, itunes_episode = source.get_itunes(tvdb_show, tvdb_episode, self.season_num, self.episode_num, self.file)
 

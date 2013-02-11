@@ -27,11 +27,11 @@ class Episode_Tags:
 
 
     def _get_metadata(self):
-        source = Metadata_Source()
+        source = Metadata_Source(float(config.get('tagMP4', 'itunes_match')))
         tvdb_show, tvdb_episode = source.get_tvdb(self.tvdb_id, self.season_num, self.episode_num)
         itunes_season, itunes_episode = source.get_itunes(tvdb_show, tvdb_episode, self.season_num, self.episode_num, self.file)
 
-        print ' - Getting metadata'
+        print ' - Setting options'
 
         tags = []
 
@@ -227,13 +227,13 @@ class MP4_Tagger:
 
 
     def write(self):
-        print ' - Writing tags to file'
-
         environment = os.environ.copy()
         environment['PIC_OPTIONS'] = 'SquareUp:removeTempPix'
 
         command = [config.get('paths', 'atomicparsley'), self.file, '--overWrite', '--metaEnema', '--artwork', 'REMOVE_ALL']
         command.extend(self.tags.get_commands())
+
+        print ' - Writing tags to file'
 
         if config.get('general', 'debug') == 'True':
             print command

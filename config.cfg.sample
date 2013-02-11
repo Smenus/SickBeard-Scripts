@@ -22,3 +22,4 @@ delete_old = False
 [tagMP4]
 add_people = True
 artwork_filename = artwork
+itunes_match = 0.8
