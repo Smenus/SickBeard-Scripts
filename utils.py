@@ -2,6 +2,7 @@
 
 import os
 import re
+import difflib
 from pkg_resources import require
 
 require('tvdb_api')
@@ -31,42 +32,27 @@ class Metadata_Source:
 
 
     def get_itunes(self, tvdb_show, tvdb_episode, season_num, episode_num, filename):
-        itunes_episode = None
-        itunes_season = None
-
         if tvdb_show is not None and tvdb_episode is not None:
             print ' - Getting iTunes metadata from TheTVDB metadata'
 
             seriesname = re.sub("(.*?) \(\d\d\d\d\)", "\\1", tvdb_show['seriesname'])
             itunes_episodes = itunes.search_episode(seriesname + ' ' + tvdb_episode['episodename'])
 
-            if len(itunes_episodes) > 0:
-                itunes_episode = itunes_episodes[0]
-                itunes_season = itunes_episode.get_album()
-            else:
-                print ' - No iTunes metadata found from TheTVDB metadata'
-
-        if itunes_episode is None or itunes_season is None:
-            print ' - Getting iTunes metadata from filename'
-
-            fp = Filename_Parser()
-            seriesname = fp.parse(filename)
-
+            for ep in itunes_episodes:
+                if difflib.SequenceMatcher(None, tvdb_episode['episodename'].lower(), ep.get_name().lower()).ratio() > 0.9:
+                    return (ep.get_album(), ep)
+            
+            # Couldn't find exact match for episode name, try searching for season first
             itunes_seasons = itunes.search_season(seriesname + ', Season ' + str(season_num))
-            if len(itunes_seasons) > 0:
-                itunes_season = itunes_seasons[0]
-                itunes_episodes = itunes_season.get_tracks()
 
-                for ep in itunes_episodes:
-                    if ep.number == int(episode_num):
-                        itunes_episode = ep
-                        break
+            for season in itunes_seasons:
+                if difflib.SequenceMatcher(None, seriesname.lower(), season.get_artist().get_name().lower()).ratio() > 0.9:
+                    for ep in season.get_tracks():
+                        if difflib.SequenceMatcher(None, tvdb_episode['episodename'].lower(), ep.get_name().lower()).ratio() > 0.9:
+                            return (season, ep)
 
-            if itunes_episode is None:
-                print ' - No iTunes metadata found from filename'
-                itunes_season = None
-
-        return (itunes_season, itunes_episode)
+        print ' - No iTunes metadata found'
+        return (None, None)
 
 
 
