@@ -33,7 +33,8 @@ class Metadata_Source:
             if episodenumber <= len(j):
                 ep = j[episodenumber - 1]
                 if 'title' in ep:
-                    metadata['episodename'] = self._clean_for_itunes(ep['title'])
+                    #metadata['episodename'] = self._clean_for_itunes(ep['title'])
+                    metadata['episodename'] = ep['title']
                 if 'first_aired' in ep:
                     airdate = datetime.datetime.utcfromtimestamp(long(ep['first_aired']))
                     metadata['airdate'] = airdate.strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -46,7 +47,8 @@ class Metadata_Source:
                     if ep_num <= len(j):
                         ep = j[ep_num - 1]
                         if 'title' in ep:
-                            metadata['episodename'] = metadata['episodename'] + ' / ' + self._clean_for_itunes(ep['title'])
+                            #metadata['episodename'] = metadata['episodename'] + ' / ' + self._clean_for_itunes(ep['title'])
+                            metadata['episodename'] = metadata['episodename'] + ' / ' + ep['title']
                         if 'overview' in ep:
                             metadata['description'] = metadata['description'] + '\n' + ep['overview']
 
