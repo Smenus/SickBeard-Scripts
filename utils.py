@@ -26,7 +26,7 @@ class Metadata_Source:
 
         # Start Trakt.tv fetching
         # Get episodes data
-        req = requests.get('http://api.trakt.tv/show/season.json/%s/%s/%d' % (self.config.get('general', 'traktapi'), tvdb_id, seasonnumber))
+        req = requests.get('http://api.trakt.tv/show/season.json/%s/%s/%d' % (self.config.get('tagMP4', 'traktapi'), tvdb_id, seasonnumber))
         if req.status_code == 200:
             j = req.json()
             metadata['episodecount'] = str(len(j))
@@ -53,7 +53,7 @@ class Metadata_Source:
                             metadata['description'] = metadata['description'] + '\n' + ep['overview']
 
         # Get show data
-        req = requests.get('http://api.trakt.tv/show/summary.json/%s/%s' % (self.config.get('general', 'traktapi'), tvdb_id))
+        req = requests.get('http://api.trakt.tv/show/summary.json/%s/%s' % (self.config.get('tagMP4', 'traktapi'), tvdb_id))
         if req.status_code == 200:
             j = req.json()
             if 'people' in j:
