@@ -30,7 +30,7 @@ class Metadata_Source:
         # Get episodes data
         req = requests.get('http://api.trakt.tv/show/season.json/%s/%s/%d' % (self.config.get('general', 'traktapi'), tvdb_id, seasonnumber))
         if req.status_code == 200:
-            j = req.json
+            j = req.json()
             metadata['episodecount'] = str(len(j))
             if episodenumber <= len(j):
                 ep = j[episodenumber - 1]
@@ -55,7 +55,7 @@ class Metadata_Source:
         # Get show data
         req = requests.get('http://api.trakt.tv/show/summary.json/%s/%s' % (self.config.get('general', 'traktapi'), tvdb_id))
         if req.status_code == 200:
-            j = req.json
+            j = req.json()
             if 'people' in j:
                 if 'actors' in j['people']:
                     actors = []
