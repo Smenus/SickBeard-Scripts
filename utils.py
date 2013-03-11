@@ -46,7 +46,7 @@ class Metadata_Source:
                     if ep_num <= len(j):
                         ep = j[ep_num - 1]
                         if 'title' in ep:
-                            metadata['episodename'] = metadata['episodename'] + '/' + ep['title']
+                            metadata['episodename'] = metadata['episodename'] + ' / ' + ep['title']
                         if 'overview' in ep:
                             metadata['description'] = metadata['description'] + '\n' + ep['overview']
 
