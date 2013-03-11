@@ -34,6 +34,7 @@ class MP4Maker:
         video_count = 0
         audio_count = 0
         self.audio_kind = ''
+        self.aac_present = False
         self.video_kind = ''
         self.video_hd = False
         self.copy_subtitles = False
@@ -41,6 +42,8 @@ class MP4Maker:
             if track.track_type == 'Audio':
                 audio_count += 1
                 self.audio_kind = track.format
+                if track.format == 'AAC':
+                    self.aac_present = True
             elif track.track_type == 'Video':
                 video_count += 1
                 self.video_kind = track.format
@@ -49,7 +52,7 @@ class MP4Maker:
                 if track.format == 'UTF-8':
                     self.copy_subtitles = True
 
-        if audio_count != 1 or video_count != 1:
+        if (audio_count != 1 and not self.aac_present) or video_count != 1:
             raise SystemExit('More than 1 video or audio stream, you\'d best check this file manually')
 
         self.ffmpeg_command = [self.config.get('paths', 'ffmpeg'), '-v', 'error', '-nostats', '-i', self.filename]
@@ -78,8 +81,12 @@ class MP4Maker:
 
     def _set_ffmpeg_audio(self):
         print ' - Setting audio options'
-        self.multiple_audio = False
-        if self.audio_kind == 'MPEG Audio':
+        if self.audio_kind == 'AAC' or self.aac_present:
+            self.ffmpeg_command.append('-map')
+            self.ffmpeg_command.append('0:a')
+            self.ffmpeg_command.append('-c:a')
+            self.ffmpeg_command.append('copy')
+        elif self.audio_kind == 'MPEG Audio':
             self.ffmpeg_command.append('-map')
             self.ffmpeg_command.append('0:a')
             self.ffmpeg_command.append('-c:a:0')
@@ -90,13 +97,7 @@ class MP4Maker:
             self.ffmpeg_command.append('1')
             self.ffmpeg_command.append('-ac:a:0')
             self.ffmpeg_command.append('2')
-        elif self.audio_kind == 'AAC':
-            self.ffmpeg_command.append('-map')
-            self.ffmpeg_command.append('0:a')
-            self.ffmpeg_command.append('-c:a')
-            self.ffmpeg_command.append('copy')
         else:
-            self.multiple_audio = True
             self.ffmpeg_command.append('-map')
             self.ffmpeg_command.append('0:a')
             self.ffmpeg_command.append('-c:a:0')
