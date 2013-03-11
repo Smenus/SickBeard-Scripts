@@ -52,8 +52,11 @@ class MP4Maker:
                 if track.format == 'UTF-8':
                     self.copy_subtitles = True
 
-        if (audio_count != 1 and not self.aac_present) or video_count != 1:
-            raise SystemExit('More than 1 video or audio stream, you\'d best check this file manually')
+        if audio_count != 1 and not self.aac_present:
+            raise SystemExit('More than 1 audio stream, you\'d best check this file manually')
+
+        if video_count != 1:
+            raise SystemExit('More than 1 video stream, you\'d best check this file manually')
 
         self.ffmpeg_command = [self.config.get('paths', 'ffmpeg'), '-v', 'error', '-nostats', '-i', self.filename]
 
