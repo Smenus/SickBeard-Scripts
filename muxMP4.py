@@ -42,7 +42,9 @@ class MP4Maker:
             if track.track_type == 'Audio':
                 audio_count += 1
                 self.audio_kind = track.format
+                print track.format
                 if track.format == 'AAC':
+                    print 'FOUND'
                     self.aac_present = True
             elif track.track_type == 'Video':
                 video_count += 1
