@@ -177,7 +177,10 @@ class MP4_Tagger:
         environment = os.environ.copy()
         environment['PIC_OPTIONS'] = 'SquareUp:removeTempPix'
 
-        command = [self.config.get('paths', 'atomicparsley'), self.filename, '--overWrite', '--metaEnema', '--artwork', 'REMOVE_ALL']
+        base, ext = os.path.splitext(self.filename)
+        taggedfile = base + '-tagged' + ext
+
+        command = [self.config.get('paths', 'atomicparsley'), self.filename, '-o', taggedfile, '--metaEnema', '--artwork', 'REMOVE_ALL']
         command.extend(self.tags.get_commands())
 
         print ' - Writing tags to file'
@@ -187,6 +190,8 @@ class MP4_Tagger:
 
         try:
             subprocess.check_output(command, env=environment, stderr=subprocess.STDOUT)
+            os.remove(self.filename)
+            os.rename(taggedfile, self.filename)
         except subprocess.CalledProcessError, e:
             print ' - Error whilst tagging: ', e.output
 
