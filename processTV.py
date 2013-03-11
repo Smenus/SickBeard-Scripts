@@ -20,22 +20,28 @@ def main():
 
     config.read(config_file)
 
-    file = sys.argv[1]
+    filename = sys.argv[1]
     dest_file = os.path.splitext(sys.argv[1])[0] + config.get('general', 'extension')
     tvdb_id = int(sys.argv[3])
 
-    if not os.path.exists(file):
+    if not os.path.exists(filename):
         raise SystemExit('File doesn\'t exist')
 
     print ''
-    print 'Processing file - ' + file
+    print 'Processing file - ' + filename
 
-    if os.path.splitext(file)[1] != config.get('general', 'extension'):
-        mux = MuxMP4(config, file, dest_file)
+    if os.path.splitext(filename)[1] == config.get('general', 'extension') and config.get('general', 'always_mux') == 'True':
+        base, ext = os.path.splitext(filename)
+        renamed = base + '-old' + ext
+        os.rename(filename, renamed)
+        mux = MuxMP4(config, renamed, dest_file)
         mux.mux()
-    else:
+    elif os.path.splitext(filename)[1] == config.get('general', 'extension'):
         print ''
         print 'File is already an MP4 file'
+    else:
+        mux = MuxMP4(config, filename, dest_file)
+        mux.mux()
 
     tag = TagMP4(config, dest_file, tvdb_id)
     tag.tag()
