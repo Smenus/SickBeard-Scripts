@@ -185,7 +185,10 @@ class MP4_Tagger:
         if self.config.get('general', 'debug') == 'True':
             print command
 
-        subprocess.check_output(command, env=environment)
+        try:
+            subprocess.check_output(command, env=environment, stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError, e:
+            print ' - Error whilst tagging: ', e.output
 
     def update_times(self):
         print ' - Updating file creation and modification times'
