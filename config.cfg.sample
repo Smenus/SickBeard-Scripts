@@ -1,6 +1,5 @@
 [paths]
 ffmpeg = /usr/local/bin/ffmpeg
-ffprobe = /usr/local/bin/ffprobe
 mp4box = /usr/local/bin/MP4Box
 atomicparsley = /usr/local/bin/AtomicParsley
 osascript = /usr/bin/osascript
