@@ -57,10 +57,10 @@ class Episode_Tags:
             tags['tracknum'] = metadata['episodenumber'] + '/' + metadata['episodecount']
         if 'id' in metadata:
             tags['cnID'] = metadata['id']
-        if 'overview' in metadata:
-            tags['description'] = metadata['overview']
-        if 'overview' in metadata:
-            tags['longdesc'] = metadata['overview']
+        if 'description' in metadata:
+            tags['description'] = metadata['description']
+        if 'description' in metadata:
+            tags['longdesc'] = metadata['description']
 
         # Check file for HDness
         print ' - Scanning video to check HDness'
