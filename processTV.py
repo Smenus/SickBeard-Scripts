@@ -9,7 +9,6 @@ from tagMP4 import TagMP4
 from addMP4 import AddMP4
 
 
-
 def main():
     if len(sys.argv) != 7:
         raise SystemExit('Not enough arguments, this script should be called by Sick Beard')
@@ -24,8 +23,6 @@ def main():
     file = sys.argv[1]
     dest_file = os.path.splitext(sys.argv[1])[0] + config.get('general', 'extension')
     tvdb_id = int(sys.argv[3])
-    season_num = int(sys.argv[4])
-    episode_num = int(sys.argv[5])
 
     if not os.path.exists(file):
         raise SystemExit('File doesn\'t exist')
@@ -40,14 +37,13 @@ def main():
         print ''
         print 'File is already an MP4 file'
 
-    tag = TagMP4(config, dest_file, tvdb_id, season_num, episode_num)
+    tag = TagMP4(config, dest_file, tvdb_id)
     tag.tag()
 
-    add = AddMP4(config, dest_file, tvdb_id, season_num, episode_num)
+    add = AddMP4(config, dest_file, tvdb_id)
     add.add()
 
     print 'Done processing file'
-
 
 
 if __name__ == '__main__':

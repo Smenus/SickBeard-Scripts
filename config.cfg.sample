@@ -23,3 +23,7 @@ delete_old = False
 add_people = True
 artwork_filename = artwork
 itunes_match = 0.8
+
+[regex]
+pattern1 = ^((?P<seriesname>.+?)[ \._\-])?(?P<seasonnumber>[0-9]+)[xX](?P<episodenumber>[0-9]+)([ \._\-](?P<episodename>.+?)[ \._\-])?([ \._\-](?P<quality>.+?))?$
+pattern2 = ^((?P<seriesname>.+?)[ \._\-])?(?P<seasonnumber>[0-9]+)[xX](?P<episodenumberstart>[0-9]+)([\-+][0-9]+)*[\-+](?P<episodenumberend>[0-9]+)([ \._\-](?P<episodename>.+?)[ \._\-])?([ \._\-](?P<quality>.+?))?$

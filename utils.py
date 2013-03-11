@@ -3,65 +3,109 @@
 import os
 import re
 import difflib
-from pkg_resources import require
-
-require('tvdb_api')
-require('python-itunes')
-
-from tvdb_api import (Tvdb, tvdb_error)
-import itunes
+import requests
+import datetime
 
 import patterns
 
 
-
 class Metadata_Source:
-    def __init__(self, itunes_match):
-        self.itunes_match = itunes_match
+    def __init__(self, config):
+        self.config = config
 
+    def get_metadata(self, tvdb_id, filename):
+        metadata = dict()
 
-    def get_tvdb(self, tvdb_id, season_num, episode_num):
-        print ' - Getting TheTVDB metadata'
+        # Start filename parsing
+        fp = Filename_Parser()
+        seriesname, seasonnumber, episodenumber, episodenumberend = fp.parse(filename)
 
-        try:
-            tvdb_instance = Tvdb(cache=False, banners=True, actors=True)
-            tvdb_show = tvdb_instance[tvdb_id]
-            tvdb_episode = tvdb_show[season_num][episode_num]
-        except tvdb_error, errormsg:
-            print ' - Warning - Could not fetch TheTVDB metadata - %s' % errormsg
-            tvdb_show = None
-            tvdb_episode = None
+        metadata['seriesname'] = seriesname
+        metadata['seasonnumber'] = str(seasonnumber)
+        metadata['episodenumber'] = str(episodenumber)
+        metadata['episodename'] = filename
+        # End filename parsing
 
-        return (tvdb_show, tvdb_episode)
+        # Start Trakt.tv fetching
+        # Get episodes data
+        req = requests.get('http://api.trakt.tv/show/season.json/%s/%s/%d' % (self.config.get('general', 'traktapi'), tvdb_id, seasonnumber))
+        if req.status_code == 200:
+            j = req.json
+            metadata['episodecount'] = str(len(j))
+            if episodenumber <= len(j):
+                ep = j[episodenumber - 1]
+                if 'title' in ep:
+                    metadata['episodename'] = self._clean_for_itunes(ep['title'])
+                if 'first_aired' in ep:
+                    airdate = datetime.datetime.utcfromtimestamp(long(ep['first_aired']))
+                    metadata['airdate'] = airdate.strftime('%Y-%m-%dT%H:%M:%SZ')
+                if 'tvdb_id' in ep:
+                    metadata['id'] = str(ep['tvdb_id'])
+                if 'overview' in ep:
+                    metadata['description'] = ep['overview']
 
+                for ep_num in range(episodenumber + 1, episodenumberend + 1):
+                    if ep_num <= len(j):
+                        ep = j[ep_num - 1]
+                        if 'title' in ep:
+                            metadata['episodename'] = metadata['episodename'] + '/' + ep['title']
+                        if 'overview' in ep:
+                            metadata['description'] = metadata['description'] + '\n' + ep['overview']
 
-    def get_itunes(self, tvdb_show, tvdb_episode, season_num, episode_num, filename):
-        if tvdb_show is not None and tvdb_episode is not None:
-            print ' - Getting iTunes metadata from TheTVDB metadata'
+        # Get show data
+        req = requests.get('http://api.trakt.tv/show/summary.json/%s/%s' % (self.config.get('general', 'traktapi'), tvdb_id))
+        if req.status_code == 200:
+            j = req.json
+            if 'people' in j:
+                if 'actors' in j['people']:
+                    actors = []
+                    for actor in j['people']['actors']:
+                        if actor['name'] is not None and actor['name'] not in actors:
+                            actors.append(actor['name'])
+                    metadata['actors'] = actors
+            if 'title' in j:
+                metadata['seriesname'] = self._clean_for_itunes(j['title'])
+            if 'genres' in j:
+                metadata['genre'] = j['genres'][0]
+            if 'network' in j:
+                metadata['network'] = j['network']
+            if 'certification' in j:
+                metadata['certificate'] = j['certification']
+            if 'images' in j:
+                if 'poster' in j['images']:
+                    metadata['poster'] = j['images']['poster']
+        # End Trakt.tv fetching
 
-            seriesname = re.sub("(.*?) \(\d\d\d\d\)", "\\1", tvdb_show['seriesname'])
+        # Actually, the data from Trakt.tv is pretty good, so we don't need to go to iTunes
+        # Start iTunes fetching
+        # Search for the season
+        #for season in itunes.search_season(metadata['seriesname'] + ', Season ' + metadata['seasonnumber']):
+        #    if self._is_similar(season.get_artist().get_name(), self._clean_for_itunes(metadata['seriesname'])):
+        #        for episode in season.get_tracks():
+        #            if self._is_similar(episode.get_name(), self._clean_for_itunes(metadata['episodename'])):
+        #                return metadata
 
-            for ep in itunes.search_episode(seriesname + ' ' + tvdb_episode['episodename']):
-                if difflib.SequenceMatcher(None, tvdb_episode['episodename'].lower(), ep.get_name().lower()).ratio() >= self.itunes_match:
-                    return (ep.get_album(), ep)
-            
-            # Couldn't find exact match for episode name, try searching for season first
-            for season in itunes.search_season(seriesname + ', Season ' + str(season_num)):
-                if difflib.SequenceMatcher(None, seriesname.lower(), season.get_artist().get_name().lower()).ratio() >= self.itunes_match:
-                    for ep in season.get_tracks():
-                        if difflib.SequenceMatcher(None, tvdb_episode['episodename'].lower(), ep.get_name().lower()).ratio() >= self.itunes_match:
-                            return (season, ep)
+        # Search for the volume
+        #for vol in itunes.search_season(metadata['seriesname'] + ', Vol. ' + metadata['seasonnumber']):
+        #    if self._is_similar(vol.get_artist().get_name(), self._clean_for_itunes(metadata['seriesname'])):
+        #        for episode in vol.get_tracks():
+        #            if self._is_similar(episode.get_name(), self._clean_for_itunes(metadata['episodename'])):
+        #                return metadata
 
-            # Last try, without season number
-            for season in itunes.search_season(seriesname):
-                if difflib.SequenceMatcher(None, seriesname.lower(), season.get_artist().get_name().lower()).ratio() >= self.itunes_match:
-                    for ep in season.get_tracks():
-                        if difflib.SequenceMatcher(None, tvdb_episode['episodename'].lower(), ep.get_name().lower()).ratio() >= self.itunes_match:
-                            return (season, ep)
+        # Search for the episode
+        #for episode in itunes.search_episode(metadata['seriesname'] + ' ' + metadata['episodename']):
+        #    if (self._is_similar(episode.get_artist().get_name(), self._clean_for_itunes(metadata['seriesname'])) and
+        #            self._is_similar(episode.get_name(), self._clean_for_itunes(metadata['episodename']))):
+        #        return metadata
+        # End iTunes fetching
 
-        print ' - No iTunes metadata found'
-        return (None, None)
+        return metadata
 
+    def _clean_for_itunes(self, seriesname):
+        return re.sub("(.*?) \(\d*?\)$", "\\1", seriesname)
+
+    def _is_similar(self, one, two):
+        return difflib.SequenceMatcher(None, one.lower(), two.lower()).ratio() >= float(self.config.get('tagMP4', 'itunes_match'))
 
 
 class Filename_Parser:
@@ -77,39 +121,52 @@ class Filename_Parser:
                 namedgroups = match.groupdict().keys()
 
                 if 'seriesname' in namedgroups:
-                    seriesname = match.group('seriesname')
+                    seriesname = self._clean_match(match.group('seriesname'))
                 else:
-                    raise ConfigValueError(
-                        "Regex must contain seriesname. Pattern was:\n" + cmatcher.pattern)
+                    raise NameError("Regex must contain seriesname. Pattern was:\n" + cmatcher.pattern)
 
-                if seriesname != None:
-                    seriesname = self._clean_series_name(seriesname)
+                if 'seasonnumber' in namedgroups:
+                    seasonnumber = int(self._clean_match(match.group('seasonnumber')))
+                else:
+                    seasonnumber = 1
 
-                return seriesname
+                if 'episodenumber' in namedgroups:
+                    episodenumber = int(self._clean_match(match.group('episodenumber')))
+                else:
+                    if 'episodenumberstart' in namedgroups:
+                        episodenumber = int(self._clean_match(match.group('episodenumberstart')))
+                    else:
+                        raise NameError("Regex must contain either episodenumber or episodenumberstart. Pattern was:\n" + cmatcher.pattern)
+
+                if 'episodenumberend' in namedgroups:
+                    episodenumberend = int(self._clean_match(match.group('episodenumberend')))
+                else:
+                    episodenumberend = episodenumber
+
+                return (seriesname, seasonnumber, episodenumber, episodenumberend)
         else:
-            return filename
+            raise LookupError("Couldn't match filename against any of the regexs")
 
-
-    def _clean_series_name(self, seriesname):
-        """Cleans up series name by removing any . and _
-        characters, along with any trailing hyphens.
+    def _clean_match(self, match):
+        """Cleans up regex match by removing any . and _
+        characters, along with any trailing and leading hyphens.
 
         Is basically equivalent to replacing all _ and . with a
         space, but handles decimal numbers in string, for example:
 
-        >>> cleanRegexedSeriesName("an.example.1.0.test")
+        >>> cleanRegexedmatch("an.example.1.0.test")
         'an example 1.0 test'
-        >>> cleanRegexedSeriesName("an_example_1.0_test")
+        >>> cleanRegexedmatch("an_example_1.0_test")
         'an example 1.0 test'
         """
-        seriesname = re.sub("(\D)[.](\D)", "\\1 \\2", seriesname)
-        seriesname = re.sub("(\D)[.]", "\\1 ", seriesname)
-        seriesname = re.sub("[.](\D)", " \\1", seriesname)
-        seriesname = seriesname.replace("_", " ")
-        seriesname = re.sub("-$", "", seriesname)
-        seriesname = re.sub("(.*?) \(\d\d\d\d\)", "\\1", seriesname)
-        return seriesname.strip()
-
+        match = re.sub("(\D)[.](\D)", "\\1 \\2", match)
+        match = re.sub("(\D)[.]", "\\1 ", match)
+        match = re.sub("[.](\D)", " \\1", match)
+        match = match.replace("_", " ")
+        match = re.sub("-$", "", match)
+        match = re.sub("^-", "", match)
+        match = re.sub("(.*?) \(\d\d\d\d\)", "\\1", match)
+        return match.strip()
 
     def _compile_regexs(self):
         """Takes filename_patterns from patterns, compiles them all
@@ -121,8 +178,7 @@ class Filename_Parser:
             try:
                 cregex = re.compile(cpattern, re.VERBOSE)
             except re.error, errormsg:
-                warn("WARNING: Invalid episode_pattern (error: %s)\nPattern:\n%s" % (
-                    errormsg, cpattern))
+                raise RuntimeWarning("Invalid episode_pattern (error: %s)\nPattern:\n%s" % (errormsg, cpattern))
             else:
                 compiled_regexs.append(cregex)
 

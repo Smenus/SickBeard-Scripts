@@ -3,37 +3,23 @@
 import subprocess
 import textwrap
 
-from utils import (Metadata_Source, Filename_Parser)
-
+from utils import Metadata_Source
 
 
 class AddMP4:
-    def __init__(self, cfg, file, tvdb_id, season_num, episode_num):
-        global config
-        config = cfg
-        self.file = file
+    def __init__(self, config, filename, tvdb_id):
+        self.config = config
+        self.filename = filename
         self.tvdb_id = tvdb_id
-        self.season_num = season_num
-        self.episode_num = episode_num
-
 
     def add(self):
         print ''
-        print 'Adding file to iTunes - ' + self.file
+        print 'Adding file to iTunes - ' + self.filename
 
-        source = Metadata_Source(float(config.get('tagMP4', 'itunes_match')))
-        tvdb_show, tvdb_episode = source.get_tvdb(self.tvdb_id, self.season_num, self.episode_num)
-        _, itunes_episode = source.get_itunes(tvdb_show, tvdb_episode, self.season_num, self.episode_num, self.file)
+        source = Metadata_Source(self.config)
+        metadata = source.get_metadata(self.tvdb_id, self.filename)
 
-        if itunes_episode is not None:
-            seriesname = itunes_episode.get_artist().get_name()
-        elif tvdb_show is not None:
-            seriesname = tvdb_show['seriesname']
-        else:
-            fp = Filename_Parser()
-            seriesname = fp.parse(self.file)
-
-        osascript_command = [config.get('paths', 'osascript'), '-e']
+        osascript_command = [self.config.get('paths', 'osascript'), '-e']
 
         script = textwrap.dedent("""\
             set p to "%s"
@@ -68,7 +54,7 @@ class AddMP4:
 
             return outText""")
 
-        script = script % (self.file, self.season_num, self.episode_num, seriesname)
+        script = script % (self.filename, metadata['seasonnumber'], metadata['episodenumber'], metadata['seriesname'])
         osascript_command.append(script)
 
         script_output = subprocess.check_output(osascript_command)
@@ -76,7 +62,6 @@ class AddMP4:
         print script_output
 
         print ' * Done adding file to iTunes'
-
 
 
 if __name__ == '__main__':
