@@ -52,7 +52,7 @@ class MP4Maker:
                 if track.format == 'UTF-8':
                     self.copy_subtitles = True
 
-        if audio_count != 1 and not self.aac_present:
+        if audio_count != 1 and (not self.aac_present):
             raise SystemExit('More than 1 audio stream, you\'d best check this file manually')
 
         if video_count != 1:
