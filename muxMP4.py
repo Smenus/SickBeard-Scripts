@@ -17,15 +17,28 @@ class MP4Maker:
         self.dest_file = dest_file
 
     def make_mp4(self):
+        self._clean_metadata()
         self._scan_input()
         self._set_ffmpeg_video()
         self._set_ffmpeg_audio()
         self._set_ffmpeg_subtitles()
         self._run_ffmpeg()
-        #self._run_mp4box()
 
     def remove_old(self):
         os.remove(self.filename)
+
+    def _clean_metadata(self):
+        if os.path.splitext(self.filename)[1] in ['.m4v', '.mp4']:
+            print ' - Removing tags'
+            command = [self.config.get('paths', 'atomicparsley'), self.filename, '-W', '--metaEnema', '--artwork', 'REMOVE_ALL']
+
+            if self.config.get('general', 'debug') == 'True':
+                print command
+
+            try:
+                subprocess.check_output(command, env=os.environ, stderr=subprocess.STDOUT)
+            except subprocess.CalledProcessError, e:
+                print ' - Error whilst removing tags: ', e.output
 
     def _scan_input(self):
         print ' - Scanning file'
@@ -42,9 +55,7 @@ class MP4Maker:
             if track.track_type == 'Audio':
                 audio_count += 1
                 self.audio_kind = track.format
-                print track.format
                 if track.format == 'AAC':
-                    print 'FOUND'
                     self.aac_present = True
             elif track.track_type == 'Video':
                 video_count += 1
@@ -54,11 +65,11 @@ class MP4Maker:
                 if track.format == 'UTF-8':
                     self.copy_subtitles = True
 
-        if audio_count != 1 and (not self.aac_present):
-            raise SystemExit('More than 1 audio stream, you\'d best check this file manually')
+        if audio_count != 1 and not self.aac_present:
+            raise SystemExit('More than 1 audio stream (%d), you\'d best check this file manually' % audio_count)
 
         if video_count != 1:
-            raise SystemExit('More than 1 video stream, you\'d best check this file manually')
+            raise SystemExit('More than 1 video stream (%d), you\'d best check this file manually' % video_count)
 
         self.ffmpeg_command = [self.config.get('paths', 'ffmpeg'), '-v', 'error', '-nostats', '-i', self.filename]
 
@@ -132,25 +143,10 @@ class MP4Maker:
             print ' - Converting to MP4'
             self.ffmpeg_command.append('-f')
             self.ffmpeg_command.append('mp4')
-            # faststart not needed as AtomicParsley will do it
-            #self.ffmpeg_command.append('-movflags')
-            #self.ffmpeg_command.append('faststart')
             self.ffmpeg_command.append(self.dest_file)
             if self.config.get('general', 'debug') == 'True':
                 print self.ffmpeg_command
             subprocess.check_call(self.ffmpeg_command)
-
-    # ffmpeg now disables all secondary tracks
-    #def _run_mp4box(self):
-    #    if self.multiple_audio:
-    #        print ' - Disabling 2nd audio track'
-    #        self.mp4box_command = [self.config.get('paths', 'mp4box'), '-noprog', '-tmp', os.path.dirname(self.dest_file)]
-    #        self.mp4box_command.append('-disable')
-    #        self.mp4box_command.append('3')
-    #        self.mp4box_command.append(self.dest_file)
-    #        if self.config.get('general', 'debug') == 'True':
-    #            print self.mp4box_command
-    #        subprocess.check_call(self.mp4box_command)
 
 
 class MuxMP4:
