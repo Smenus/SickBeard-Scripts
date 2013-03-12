@@ -1,10 +1,6 @@
 import os
 import sys
 import subprocess
-#from pkg_resources import require
-
-#require('pymediainfo')
-#require('lockfile')
 
 from pymediainfo import MediaInfo
 from lockfile import FileLock
@@ -16,49 +12,59 @@ class MP4Maker:
         self.filename = filename
         self.dest_file = dest_file
 
+        self.file_kind = ''
+        self.audio_kind = ''
+        self.video_kind = ''
+        self.aac_present = False
+        self.video_hd = False
+        self.ref_frames = 0
+        self.copy_subtitles = False
+
     def make_mp4(self):
-        self._clean_metadata()
         self._scan_input()
-        self._set_ffmpeg_video()
-        self._set_ffmpeg_audio()
-        self._set_ffmpeg_subtitles()
-        self._run_ffmpeg()
+        if not self.aac_present or self.video_kind != 'AVC' or self.ref_frames > 9 or self.file_kind != 'MPEG-4':
+            self._set_ffmpeg_video()
+            self._set_ffmpeg_audio()
+            self._set_ffmpeg_subtitles()
+            self._run_ffmpeg()
+        else:
+            print ' - File already fine, renaming'
+            os.rename(self.filename, self.dest_file)
 
     def remove_old(self):
         os.remove(self.filename)
 
     def _clean_metadata(self):
-        if os.path.splitext(self.filename)[1] in ['.m4v', '.mp4']:
-            print ' - Removing tags'
+        print ' - Removing tags'
 
-            base, ext = os.path.splitext(self.filename)
-            cleanedfile = base + '-cleaned' + ext
+        base, ext = os.path.splitext(self.filename)
+        cleanedfile = base + '-cleaned' + ext
 
-            command = [self.config.get('paths', 'atomicparsley'), self.filename, '-o', cleanedfile, '--metaEnema', '--artwork', 'REMOVE_ALL']
+        command = [self.config.get('paths', 'atomicparsley'), self.filename, '-o', cleanedfile, '--metaEnema', '--artwork', 'REMOVE_ALL']
 
-            if self.config.get('general', 'debug') == 'True':
-                print command
+        if self.config.get('general', 'debug') == 'True':
+            print command
 
-            try:
-                subprocess.check_output(command, env=os.environ, stderr=subprocess.STDOUT)
-                os.remove(self.filename)
-                os.rename(cleanedfile, self.filename)
-            except subprocess.CalledProcessError, e:
-                print ' - Error whilst removing tags: ', e.output
+        try:
+            subprocess.check_output(command, env=os.environ, stderr=subprocess.STDOUT)
+            os.remove(self.filename)
+            os.rename(cleanedfile, self.filename)
+        except subprocess.CalledProcessError, e:
+            print ' - Error whilst removing tags: ', e.output
 
     def _scan_input(self):
         print ' - Scanning file'
         mi = MediaInfo.parse(self.filename)
 
+        if len(mi.tracks) == 0 and os.path.splitext(self.filename)[1] in ['.m4v', '.mp4']:
+            self._clean_metadata()
+            mi = MediaInfo.parse(self.filename)
+
         video_count = 0
         audio_count = 0
-        self.audio_kind = ''
-        self.aac_present = False
-        self.video_kind = ''
-        self.video_hd = False
-        self.ref_frames = 0
-        self.copy_subtitles = False
         for track in mi.tracks:
+            if track.track_type == 'General':
+                self.file_kind = track.format
             if track.track_type == 'Audio':
                 audio_count += 1
                 self.audio_kind = track.format
