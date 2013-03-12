@@ -30,13 +30,19 @@ class MP4Maker:
     def _clean_metadata(self):
         if os.path.splitext(self.filename)[1] in ['.m4v', '.mp4']:
             print ' - Removing tags'
-            command = [self.config.get('paths', 'atomicparsley'), self.filename, '-W', '--metaEnema', '--artwork', 'REMOVE_ALL']
+
+            base, ext = os.path.splitext(self.filename)
+            cleanedfile = base + '-cleaned' + ext
+
+            command = [self.config.get('paths', 'atomicparsley'), self.filename, '-o', cleanedfile, '--metaEnema', '--artwork', 'REMOVE_ALL']
 
             if self.config.get('general', 'debug') == 'True':
                 print command
 
             try:
                 subprocess.check_output(command, env=os.environ, stderr=subprocess.STDOUT)
+                os.remove(self.filename)
+                os.rename(cleanedfile, self.filename)
             except subprocess.CalledProcessError, e:
                 print ' - Error whilst removing tags: ', e.output
 
@@ -50,6 +56,7 @@ class MP4Maker:
         self.aac_present = False
         self.video_kind = ''
         self.video_hd = False
+        self.ref_frames = 0
         self.copy_subtitles = False
         for track in mi.tracks:
             if track.track_type == 'Audio':
@@ -61,6 +68,8 @@ class MP4Maker:
                 video_count += 1
                 self.video_kind = track.format
                 self.video_hd = True if (track.height >= 700 or track.width >= 1260) else False
+                if hasattr(track, 'codec_settings_refframes'):
+                    self.ref_frames = int(track.codec_settings_refframes)
             elif track.track_type == 'Text':
                 if track.format == 'UTF-8':
                     self.copy_subtitles = True
@@ -75,7 +84,7 @@ class MP4Maker:
 
     def _set_ffmpeg_video(self):
         print ' - Setting video options'
-        if self.video_kind == 'AVC':
+        if self.video_kind == 'AVC' and self.ref_frames <= 9:
             self.ffmpeg_command.append('-map')
             self.ffmpeg_command.append('0:v')
             self.ffmpeg_command.append('-c:v')
