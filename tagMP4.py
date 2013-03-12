@@ -3,10 +3,6 @@ import subprocess
 import urllib
 import StringIO
 import time
-#from pkg_resources import require
-
-#require('python-dateutil')
-#require('pymediainfo')
 
 from pymediainfo import MediaInfo
 import dateutil.parser
