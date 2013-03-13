@@ -27,12 +27,15 @@ class MP4Maker:
             self._set_ffmpeg_audio()
             self._set_ffmpeg_subtitles()
             self._run_ffmpeg()
+            self._remove_old()
         else:
             print ' - File already fine, renaming'
             os.rename(self.filename, self.dest_file)
 
-    def remove_old(self):
-        os.remove(self.filename)
+    def _remove_old(self):
+        if self.config.get('makeMP4', 'delete_old') == 'True':
+            print ' - Removing old file'
+            os.remove(self.filename)
 
     def _clean_metadata(self):
         print ' - Removing tags'
@@ -176,9 +179,6 @@ class MuxMP4:
 
         maker = MP4Maker(self.config, self.filename, self.dest_file)
         maker.make_mp4()
-        if self.config.get('makeMP4', 'delete_old') == 'True':
-            print ' - Removing old file'
-            maker.remove_old()
 
         print ' * Done converting file to MP4'
 
