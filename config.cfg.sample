@@ -7,7 +7,6 @@ osascript = /usr/bin/osascript
 [general]
 extension = .m4v
 debug = False
-always_mux = True
 
 [makeMP4]
 x264_crf_hd = 23

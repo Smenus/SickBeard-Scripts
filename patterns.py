@@ -1,5 +1,3 @@
-#!/usr/local/bin/python
-
 # Patterns taken from tvnamer
 
 filename_patterns = [

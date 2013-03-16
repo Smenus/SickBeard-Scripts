@@ -19,7 +19,7 @@ class AddMP4:
 
         osascript_command = [self.config.get('paths', 'osascript'), '-e']
 
-        script = textwrap.dedent("""\
+        script = textwrap.dedent(u"""\
             set p to "%s"
             set f to POSIX file p
             set outText to ""
@@ -52,7 +52,7 @@ class AddMP4:
 
             return outText""")
 
-        script = script % (self.filename, metadata['seasonnumber'], metadata['episodenumber'], metadata['seriesname'])
+        script = script % (unicode(self.filename, 'utf-8'), metadata['seasonnumber'], metadata['episodenumber'], metadata['seriesname'])
         osascript_command.append(script)
 
         script_output = subprocess.check_output(osascript_command)
